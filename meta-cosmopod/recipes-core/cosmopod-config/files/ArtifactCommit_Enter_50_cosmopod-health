@@ -1,0 +1,63 @@
+#!/bin/sh
+set -u
+
+deadline=300
+required_stable=120
+interval=5
+elapsed=0
+stable=0
+services="data.mount cosmopod-persist.service NetworkManager.service sshd.service weston.service mender-authd.service mender-updated.service"
+
+while [ "$elapsed" -lt "$deadline" ]; do
+    healthy=true
+    reason=""
+
+    for service in $services; do
+        if ! systemctl is-active --quiet "$service"; then
+            healthy=false
+            reason="$service is not active"
+            break
+        fi
+    done
+
+    if [ "$healthy" = true ] && [ ! -w /data ]; then
+        healthy=false
+        reason="/data is not writable"
+    fi
+    if [ "$healthy" = true ] && ! sshd -t; then
+        healthy=false
+        reason="sshd configuration validation failed"
+    fi
+    if [ "$healthy" = true ] && ! { [ -S /run/wayland-0 ] || find /run/user -maxdepth 3 -type s -name 'wayland-*' 2>/dev/null | grep -q .; }; then
+        healthy=false
+        reason="Wayland socket is absent"
+    fi
+
+    if [ "$healthy" = true ]; then
+        probe="/data/cosmopod/.ota-health.$$"
+        if printf '%s\n' "$elapsed" > "$probe" && sync "$probe" && rm -f "$probe"; then
+            stable=$((stable + interval))
+        else
+            stable=0
+            reason="/data write-sync-remove probe failed"
+        fi
+    else
+        stable=0
+    fi
+
+    if [ "$stable" -ge "$required_stable" ]; then
+        logger -t cosmopod-health "OS health gate passed after ${required_stable}s stable"
+        exit 0
+    fi
+
+    if [ $((elapsed % 30)) -eq 0 ]; then
+        printf 'Cosmopod health waiting: stable=%ss reason=%s\n' "$stable" "${reason:-warming up}" >&2
+    fi
+
+    sleep "$interval"
+    elapsed=$((elapsed + interval))
+done
+
+printf 'Cosmopod health failed after %ss: %s\n' "$deadline" "${reason:-stable window not reached}" >&2
+logger -t cosmopod-health "OS health gate failed; Mender must roll back"
+exit 1

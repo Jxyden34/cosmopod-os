@@ -1,0 +1,10 @@
+.env
+.state/
+*.mender
+secrets/
+production/*secret*.yaml
+production/*credentials*.yaml
+production/**/*secret*.yaml
+production/**/*credentials*.yaml
+*.p12
+*.pfx

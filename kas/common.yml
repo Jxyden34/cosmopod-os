@@ -1,0 +1,100 @@
+header:
+  version: 14
+
+build_system: openembedded
+distro: cosmopod
+target:
+  - cosmopod-image
+
+repos:
+  cosmopod-os:
+    layers:
+      meta-cosmopod:
+
+  openembedded-core:
+    url: https://git.openembedded.org/openembedded-core.git
+    commit: 6988157ad983978ffd6b12bcefedd4deaffdbbd1
+    layers:
+      meta:
+
+  bitbake:
+    url: https://git.openembedded.org/bitbake.git
+    commit: 8dcf084522b9c66a6639b5f117f554fde9b6b45a
+    layers:
+      bitbake: disabled
+
+  meta-yocto:
+    url: https://git.yoctoproject.org/meta-yocto.git
+    commit: 9bb6e6e8b016a0c9dfe290369a6ed91ef4020535
+    layers:
+      meta-poky:
+      meta-yocto-bsp:
+
+  meta-openembedded:
+    url: https://git.openembedded.org/meta-openembedded.git
+    commit: ec0469748be4159fb83fb0fa0148d786484c88cf
+    layers:
+      meta-oe:
+      meta-python:
+      meta-networking:
+      meta-filesystems:
+      meta-multimedia:
+
+  meta-raspberrypi:
+    url: https://github.com/agherzan/meta-raspberrypi.git
+    commit: 2c646d29912dcc873469a57b1c207e1549c5094d
+
+  meta-mender:
+    url: https://github.com/mendersoftware/meta-mender.git
+    commit: 00d4dfc36625a27ca0d6ad7aa33eeeab397281a9
+    layers:
+      meta-mender-core:
+
+  meta-mender-community:
+    url: https://github.com/theyoctojester/meta-mender-community.git
+    commit: bc815f010f3b6c2180c2acb2b632bdcc9ff992c6
+    layers:
+      meta-mender-raspberrypi:
+
+local_conf_header:
+  cosmopod-base: |
+    CONF_VERSION = "2"
+    INIT_MANAGER = "systemd"
+    PACKAGE_CLASSES = "package_ipk"
+    LICENSE_FLAGS_ACCEPTED:append = " synaptics-killswitch"
+
+    INHERIT += "create-spdx"
+    SPDX_INCLUDE_SOURCES = "0"
+    SPDX_ARCHIVE_PACKAGED = "0"
+    SPDX_PRETTY = "1"
+    ARTIFACTIMG_FSTYPE = "ext4"
+    MENDER_STORAGE_TOTAL_SIZE_MB = "7450"
+    MENDER_BOOT_PART_SIZE_MB = "256"
+    MENDER_DATA_PART_SIZE_MB = "1024"
+
+    COSMOPOD_VERSION ?= "0.1.0-dev"
+    MENDER_ARTIFACT_NAME ?= "cosmopod-os-${COSMOPOD_VERSION}-${MACHINE}"
+    MENDER_SERVER_URL ?= "https://kys.dpdns.org"
+    MENDER_TENANT_TOKEN ?= ""
+    MENDER_UPDATE_POLL_INTERVAL_SECONDS = "1800"
+    MENDER_INVENTORY_POLL_INTERVAL_SECONDS = "28800"
+    PACKAGECONFIG:remove:pn-openssh = "systemd-sshd-socket-mode"
+    PACKAGECONFIG:append:pn-openssh = " systemd-sshd-service-mode"
+
+    # Preserve backend selection across A/B rootfs replacement.
+    MENDER_CONFIGURATION_VARS:append = " TenantToken"
+    MENDER_PERSISTENT_CONFIGURATION_VARS:append = " ServerURL TenantToken"
+
+    # Factory image includes one FAT boot partition, two rootfs slots, and data.
+    IMAGE_FSTYPES:remove = "rpi-sdimg"
+    IMAGE_ROOTFS_EXTRA_SPACE = "524288"
+
+    RPI_USE_U_BOOT = "1"
+    ENABLE_UART = "1"
+    ENABLE_I2C = "1"
+    ENABLE_SPI_BUS = "1"
+    VC4DTBO = "vc4-kms-v3d"
+    DISABLE_OVERSCAN = "1"
+    GPU_MEM = "128"
+    MENDER_BOOT_PART_SIZE_MB = "256"
+    IMAGE_INSTALL:append = " kernel-image"

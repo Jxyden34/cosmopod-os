@@ -1,0 +1,12 @@
+[Unit]
+Description=Prepare Cosmopod persistent state
+After=data.mount local-fs.target
+Before=NetworkManager.service sshd.service weston.service cosmopod-firstboot.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/cosmopod-persist
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

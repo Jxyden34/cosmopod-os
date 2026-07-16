@@ -1,0 +1,14 @@
+[Unit]
+Description=Provision Cosmopod OS from boot partition
+Requires=cosmopod-persist.service
+After=cosmopod-persist.service NetworkManager.service
+Before=mender-authd.service mender-updated.service
+ConditionPathExists=!/data/cosmopod/provisioned-v1
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/cosmopod-firstboot
+TimeoutStartSec=180
+
+[Install]
+WantedBy=multi-user.target

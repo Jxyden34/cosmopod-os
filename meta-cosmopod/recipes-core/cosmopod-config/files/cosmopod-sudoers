@@ -1,0 +1,2 @@
+Defaults:cosmopod !requiretty
+cosmopod ALL=(ALL:ALL) NOPASSWD: ALL

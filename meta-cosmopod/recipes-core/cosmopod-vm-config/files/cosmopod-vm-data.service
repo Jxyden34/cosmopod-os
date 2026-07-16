@@ -1,0 +1,12 @@
+[Unit]
+Description=Prepare Cosmopod VM data storage
+After=local-fs.target
+Before=cosmopod-persist.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/cosmopod-vm-data
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

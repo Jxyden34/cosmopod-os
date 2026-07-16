@@ -1,0 +1,20 @@
+header:
+  version: 14
+  includes:
+    - common.yml
+
+build_system: openembedded
+machine: genericx86-64
+
+local_conf_header:
+  cosmopod-vm: |
+    # ISO is live boot media. QCOW2 is a persistent EFI VM disk.
+    # Mender A/B is intentionally Pi-only in this target.
+    # Scope live/disk formats to the product image. An unscoped ISO format also
+    # reaches core-image-minimal-initramfs and image-live rejects that cycle.
+    IMAGE_FSTYPES:remove:pn-cosmopod-image = "wic wic.bmap"
+    IMAGE_FSTYPES:append:pn-cosmopod-image = " iso wic.qcow2"
+    WKS_FILE:pn-cosmopod-image = "cosmopod-vm.wks"
+    IMAGE_INSTALL:append:pn-cosmopod-image = " cosmopod-vm-config"
+    LABELS_LIVE:pn-cosmopod-image = "boot"
+    QB_MEM = "-m 4096"

@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+
+install -d -m 0755 /data
+if mountpoint -q /data; then
+    exit 0
+fi
+
+device=$(findfs LABEL=cosmopod-data 2>/dev/null || true)
+if [ -n "$device" ]; then
+    mount -t ext4 -o rw,nodev,nosuid "$device" /data
+else
+    mount -t tmpfs -o mode=0755,nodev,nosuid tmpfs /data
+fi

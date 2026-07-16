@@ -1,0 +1,7 @@
+# BIOS+UEFI ISO comes from image-live. This EFI disk is the persistent VM form.
+part /boot --source bootimg-efi --sourceparams="loader=grub-efi" --ondisk sda --label boot --use-label --active --align 1024
+part / --source rootfs --ondisk sda --fstype=ext4 --label platform --align 1024 --use-uuid
+part /data --ondisk sda --fstype=ext4 --label cosmopod-data --use-label --size 1024 --align 1024 --fsoptions="defaults,nofail,x-systemd.device-timeout=5s"
+part swap --ondisk sda --size 256 --label swap1 --use-label --fstype=swap
+
+bootloader --ptable gpt --timeout=5 --append="rw rootfstype=ext4 console=ttyS0,115200 console=tty0"

@@ -1,0 +1,16 @@
+# Rename this file to cosmopod.conf on the boot partition before first boot.
+# Values are parsed as data. Shell syntax and command substitution are ignored.
+
+COSMOPOD_HOSTNAME=cosmopod
+SSH_PUBLIC_KEY=
+
+WIFI_COUNTRY=GB
+WIFI_SSID=
+WIFI_PASSWORD=
+
+# Open Source self-hosted Mender does not need a tenant token.
+MENDER_SERVER_URL=https://kys.dpdns.org
+MENDER_TENANT_TOKEN=
+
+# Lab only. Keep false for real deployments.
+ALLOW_INSECURE_MENDER=false

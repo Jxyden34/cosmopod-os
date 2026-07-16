@@ -1,0 +1,5 @@
+services:
+  traefik:
+    ports: !override
+      - "${MENDER_BIND_ADDRESS:-127.0.0.1}:80:80"
+      - "${MENDER_BIND_ADDRESS:-127.0.0.1}:443:443"

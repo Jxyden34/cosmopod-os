@@ -1,0 +1,9 @@
+#!/bin/sh
+
+export EDITOR=vim
+export PAGER=less
+alias ll='ls -alF --color=auto'
+
+if [ -n "${WAYLAND_DISPLAY:-}" ]; then
+    printf 'Cosmopod OS Wayland session ready.\n'
+fi

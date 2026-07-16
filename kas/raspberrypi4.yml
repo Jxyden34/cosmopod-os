@@ -1,0 +1,13 @@
+header:
+  version: 14
+  includes:
+    - common.yml
+
+build_system: openembedded
+machine: raspberrypi4-64
+
+local_conf_header:
+  cosmopod-rpi4: |
+    INHERIT += "mender-full"
+    MENDER_DEVICE_TYPE = "cosmopod-rpi4-64"
+    IMAGE_INSTALL:append:pn-cosmopod-image = " kernel-devicetree"

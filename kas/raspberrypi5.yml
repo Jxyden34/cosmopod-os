@@ -1,0 +1,22 @@
+header:
+  version: 14
+  includes:
+    - common.yml
+
+build_system: openembedded
+machine: raspberrypi5
+
+repos:
+  meta-lts-mixins:
+    url: https://git.yoctoproject.org/meta-lts-mixins
+    commit: a44882db02a0ed0f149371831bfbe067665eb42b
+
+local_conf_header:
+  cosmopod-rpi5: |
+    INHERIT += "mender-full"
+    MENDER_DEVICE_TYPE = "cosmopod-rpi5"
+    IMAGE_INSTALL:append:pn-cosmopod-image = " kernel-devicetree"
+    KERNEL_IMAGETYPE_UBOOT ?= "Image"
+    KERNEL_BOOTCMD ?= "booti"
+    UBOOT_MACHINE = "rpi_arm64_config"
+    RPI_KERNEL_DEVICETREE_OVERLAYS:append = " overlays/bcm2712d0.dtbo"

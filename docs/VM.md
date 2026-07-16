@@ -1,0 +1,45 @@
+# Virtual machines
+
+The `vm` target builds the same Cosmopod Wayland userspace for x86-64:
+
+```powershell
+.\scripts\build.ps1 -Board vm -Version 0.1.0
+```
+
+Outputs:
+
+- `Cosmopod-OS-0.1.0-vm-x86_64.iso`: hybrid BIOS/UEFI live media.
+- `Cosmopod-OS-0.1.0-vm-x86_64.qcow2`: persistent EFI disk for QEMU,
+  libvirt, UTM, or conversion to another hypervisor format.
+
+Use at least 4 GB RAM, two virtual CPUs, a compatible virtual GPU, and one
+network adapter. Secure Boot must be disabled because version 0.1.0 does not
+ship a Microsoft-signed EFI chain.
+
+The ISO is ephemeral: `/data` uses tmpfs and changes disappear after shutdown.
+The QCOW2 disk has a persistent `cosmopod-data` partition. Neither VM format
+uses Raspberry Pi Mender A/B OTA; backend updates are Pi-only.
+
+## First VM login and SSH
+
+Weston starts the locked `cosmopod` account directly on the virtual console.
+There is no password. Open a local terminal and add an SSH key:
+
+```sh
+install -d -m 0700 ~/.ssh
+printf '%s\n' 'ssh-ed25519 AAAA... replace-with-your-real-key' > ~/.ssh/authorized_keys
+chmod 0600 ~/.ssh/authorized_keys
+```
+
+Do this on QCOW2 for persistence. The live ISO cannot consume a mutable
+`cosmopod.conf` file from its read-only ISO filesystem and deliberately leaves
+remote SSH unavailable until a valid key is added locally.
+
+To use Hyper-V, convert a copy with a trusted `qemu-img` installation:
+
+```sh
+qemu-img convert -p -f qcow2 -O vhdx Cosmopod-OS-0.1.0-vm-x86_64.qcow2 Cosmopod-OS-0.1.0-vm-x86_64.vhdx
+```
+
+Keep the original checksum and verify the converted disk in an isolated VM
+before using it for important data.

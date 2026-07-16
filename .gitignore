@@ -1,0 +1,42 @@
+# Yocto / kas build state
+build/
+build-*/
+.kas_*
+.cosmopod-release.yml
+downloads/
+sstate-cache/
+tmp/
+
+# Release output
+out/
+artifacts/
+*.sdimg
+*.sdimg.*
+*.mender
+*.img
+*.img.xz
+*.wic
+*.wic.*
+
+# Local backend state
+backend/.runtime/
+backend/.env
+
+# Private material. Public verification keys belong under meta-cosmopod.
+**/secrets/**
+!secrets/
+!secrets/README.md
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/*.token
+!meta-cosmopod/recipes-mender/mender/files/artifact-verify-key.pem
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+__pycache__/
+*.pyc
