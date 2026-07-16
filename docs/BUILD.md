@@ -155,8 +155,9 @@ partitions mounted read-write and swap activated. ISO testing proved its tmpfs
 provisioning, and key-only SSH daemon startup. It also found and drove fixes for
 an absent live mount point, unconditional NFSD mount, and expected read-only
 root remount. Weston still failed under the last tested virtio GPU run; the
-latest rebuild sends its fatal log to the boot console and requires a repeat
-smoke test before VM qualification.
+latest built media sends its fatal log to the boot console. Source now includes
+an opt-in, fixed-function guest reporter plus `scripts/smoke-vm.ps1`; rebuild
+the VM media and pass both ISO and QCOW2 checks before VM qualification.
 
 No real Raspberry Pi boot has been claimed. A full Raspberry Pi 5 build also
 remains outstanding. Treat these artifacts as pre-release media until the

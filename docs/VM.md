@@ -23,6 +23,37 @@ The tested QCOW2 UEFI path used EDK2 code and variable images as pflash drives;
 passing the code image through QEMU's simple `-bios` option did not boot this
 disk.
 
+## Automated smoke test
+
+After building fresh VM media, run both isolated QEMU checks from Windows:
+
+```powershell
+.\scripts\smoke-vm.ps1 -Media all -Version 0.1.0
+```
+
+The test uses TCG with `-cpu max`, a loopback-only VNC display, restricted
+user-mode networking, one temporary loopback-only SSH forward, and a temporary
+QCOW2 overlay. The QCOW2 check boots that same disposable overlay twice. The
+guest cannot use this network for external traffic. The test never modifies the
+release disk or OVMF variables template. A fixed guest
+reporter activates only when QEMU supplies one of two exact SMBIOS test
+markers; it accepts no host commands or interactive login.
+
+The reporter checks OS identity, root/data mount policy, persistent bind
+mounts, swap layout, NetworkManager, key-only `sshd`, port 22, systemd health,
+DRM connector/mode state, the UID 1000 Weston process, and a real
+`wayland-info` client connection. It rechecks Weston after a stability window
+and captures Weston's service state and journal before powering off. Host-side
+`ssh-keyscan` proves loopback reachability and matches server fingerprints to
+the guest's persistent host keys; it does not claim user authentication. The
+second QCOW2 boot must recover both a `/data` sentinel and the exact same two
+SSH host-key fingerprints. QMP also records a dimension-checked, non-uniform
+PPM screen image. Raw/normalized serial, QEMU, Weston, SSH, screen, TAP, and
+checksum evidence is written below `out/<version>/vm/smoke/`.
+
+Current 0.1.0 artifacts predate this reporter. Rebuild them before running this
+command; a timeout against the older media is expected and is not a pass.
+
 The ISO is ephemeral: `/data` uses tmpfs and changes disappear after shutdown.
 The QCOW2 disk has a persistent `cosmopod-data` partition. Neither VM format
 uses Raspberry Pi Mender A/B OTA; backend updates are Pi-only.
@@ -57,6 +88,7 @@ Snapshot-mode QEMU testing reached serial login from both media types. QCOW2
 mounted its ext4 root and `cosmopod-data` partitions read-write and activated
 swap. The live ISO reached multi-user and graphical targets with tmpfs `/data`,
 NetworkManager, provisioning, and OpenSSH active. Remaining qualification item:
-Weston failed under the last tested virtio-vga run. The current rebuild exposes
-its fatal log on the console and must be booted again before claiming a working
-VM desktop.
+Weston failed under the last tested virtio-vga run. The current media exposes
+its fatal log on the console. Source now also contains a non-interactive smoke
+reporter and host runner, but the media must be rebuilt and pass that runner
+before claiming a working VM desktop.

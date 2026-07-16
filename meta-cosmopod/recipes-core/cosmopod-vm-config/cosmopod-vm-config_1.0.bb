@@ -9,11 +9,14 @@ SRC_URI = " \
     file://cosmopod-vm-remount-condition \
     file://cosmopod-remount-vm.conf \
     file://cosmopod-weston-vm.conf \
+    file://cosmopod-vm-smoke-condition \
+    file://cosmopod-vm-smoke \
+    file://cosmopod-vm-smoke.service \
 "
 
 inherit systemd
 
-SYSTEMD_SERVICE:${PN} = "cosmopod-vm-data.service"
+SYSTEMD_SERVICE:${PN} = "cosmopod-vm-data.service cosmopod-vm-smoke.service"
 SYSTEMD_AUTO_ENABLE = "enable"
 
 RDEPENDS:${PN} += "util-linux util-linux-blkid util-linux-mount"
@@ -25,9 +28,12 @@ do_install() {
     install -d ${D}${libexecdir}
     install -m 0755 ${WORKDIR}/cosmopod-vm-data ${D}${libexecdir}/
     install -m 0755 ${WORKDIR}/cosmopod-vm-remount-condition ${D}${libexecdir}/
+    install -m 0755 ${WORKDIR}/cosmopod-vm-smoke-condition ${D}${libexecdir}/
+    install -m 0755 ${WORKDIR}/cosmopod-vm-smoke ${D}${libexecdir}/
 
     install -d ${D}${systemd_system_unitdir}
     install -m 0644 ${WORKDIR}/cosmopod-vm-data.service ${D}${systemd_system_unitdir}/
+    install -m 0644 ${WORKDIR}/cosmopod-vm-smoke.service ${D}${systemd_system_unitdir}/
 
     install -d ${D}${sysconfdir}/systemd/system/cosmopod-persist.service.d
     install -m 0644 ${WORKDIR}/cosmopod-persist-vm.conf \

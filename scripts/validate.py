@@ -55,6 +55,8 @@ def check_vm_image_scoping() -> None:
     wks = (ROOT / "meta-cosmopod/wic/cosmopod-vm.wks").read_text(encoding="utf-8")
     if "${" in wks or 'loader=grub-efi' not in wks:
         fail("VM WKS must use an explicit Wic EFI loader")
+    if not re.search(r"part /data .*--fsoptions=\"[^\"]*nodev[^\"]*nosuid", wks):
+        fail("persistent VM /data partition must disable device and set-ID files")
     wrapper = (ROOT / "scripts/build.sh").read_text(encoding="utf-8")
     for suffix in ("rootfs.iso", "rootfs.wic.qcow2"):
         if f"cosmopod-image-$machine.{suffix}" not in wrapper:
@@ -77,6 +79,65 @@ def check_vm_image_scoping() -> None:
         fail("VM image must skip root remount only when live root is read-only")
     if "cosmopod-weston-vm.conf" not in vm_config:
         fail("VM Weston failures must remain visible on the boot console")
+    for smoke_file in (
+        "cosmopod-vm-smoke-condition",
+        "cosmopod-vm-smoke",
+        "cosmopod-vm-smoke.service",
+    ):
+        if smoke_file not in vm_config:
+            fail(f"VM image must install fixed smoke reporter file: {smoke_file}")
+    smoke_condition = (
+        ROOT
+        / "meta-cosmopod/recipes-core/cosmopod-vm-config/files/"
+        "cosmopod-vm-smoke-condition"
+    ).read_text(encoding="utf-8")
+    smoke_reporter = (
+        ROOT
+        / "meta-cosmopod/recipes-core/cosmopod-vm-config/files/cosmopod-vm-smoke"
+    ).read_text(encoding="utf-8")
+    smoke_host = (ROOT / "scripts/smoke-vm.sh").read_text(encoding="utf-8")
+    for marker in ("COSMOPOD-SMOKE-ISO", "COSMOPOD-SMOKE-QCOW2"):
+        if marker not in smoke_condition or marker not in smoke_host:
+            fail(f"VM smoke activation marker missing: {marker}")
+    for evidence in (
+        "sshd -T",
+        "boot.serial-console",
+        "weston.socket",
+        "mount.data",
+        "persistence.state",
+        "wayland-info",
+        "drm.connected-output",
+        "weston.stable",
+        "COSMOPOD_SMOKE_SCREENSHOT_READY",
+        "COSMOPOD_WESTON_LOG_BEGIN",
+        "COSMOPOD_SMOKE_RESULT=",
+    ):
+        if evidence not in smoke_reporter:
+            fail(f"VM smoke reporter does not capture required evidence: {evidence}")
+    for host_control in (
+        "-cpu max",
+        "-smbios",
+        "-drive",
+        "readonly=on",
+        "q35,accel=tcg",
+        "-vga none",
+        "restrict=on",
+        "hostfwd=tcp:127.0.0.1",
+        "sendkey down",
+        "sendkey ret",
+        "qmp_screendump",
+        "validate_ppm",
+        "ssh-keyscan",
+        "detect_image_format",
+        "check_qcow2_persistence",
+        "qcow2.boot1",
+        "qcow2.boot2",
+        "COSMOPOD_QEMU_KEYMAP",
+    ):
+        if host_control not in smoke_host:
+            fail(f"VM smoke host lacks required QEMU control: {host_control}")
+    if re.search(r"\bread\b", smoke_reporter):
+        fail("fixed VM smoke reporter must not accept interactive guest commands")
     nfs_append = (
         ROOT / "meta-cosmopod/recipes-connectivity/nfs-utils/nfs-utils_%.bbappend"
     ).read_text(encoding="utf-8")

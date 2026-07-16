@@ -109,7 +109,9 @@ validation. QEMU smoke tests reached a Cosmopod serial login from both VM
 formats; the persistent QCOW2 mounted its root, data, and swap partitions. Live
 ISO testing found and fixed data, NFSD, and read-only-remount failures. The last
 booted ISO iteration still failed to start Weston under the test's virtual GPU;
-the latest rebuilt ISO includes console diagnostics and needs one repeat boot.
+the latest built ISO includes console diagnostics. Source now contains a safe,
+non-interactive QEMU smoke reporter for mounts, SSH, DRM, Weston, and Wayland;
+VM media needs rebuilding and must pass it before desktop qualification.
 Raspberry Pi 5 source support is present, but a full Pi 5 build has not
 completed. Real Pi hardware tests and production backend deployment at
 `https://kys.dpdns.org` remain outstanding. See [Build](docs/BUILD.md).
