@@ -51,6 +51,10 @@ request-duration limits; use a DNS-only record or explicitly qualify the
 selected Cloudflare plan before production. Review storage class, resource,
 replica, ingress, and network-policy choices first.
 
+Confirm that this hostname is dedicated to Mender before changing DNS or its
+origin virtual host. If it already serves another application, move Mender to
+a dedicated update hostname instead of silently replacing that service.
+
 ```bash
 helm repo add mender https://charts.mender.io
 helm repo update

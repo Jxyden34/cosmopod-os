@@ -16,6 +16,14 @@ root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 version=${2:-$(<"$root/VERSION")}
 out_dir="$root/out/$version/$board"
 work_dir=${COSMOPOD_BUILD_ROOT:-"$HOME/.cache/cosmopod-os"}/work-$board
+temp_files=()
+
+cleanup() {
+    if ((${#temp_files[@]})); then
+        rm -f -- "${temp_files[@]}"
+    fi
+}
+trap cleanup EXIT
 
 [[ -d "$out_dir" ]] || { echo "Missing artifact directory: $out_dir" >&2; exit 1; }
 cd "$out_dir"
@@ -49,7 +57,7 @@ validate_pi() {
 
     mkdir -p "${COSMOPOD_BUILD_ROOT:-"$HOME/.cache/cosmopod-os"}"
     raw=$(mktemp "${COSMOPOD_BUILD_ROOT:-"$HOME/.cache/cosmopod-os"}/$board-validate.XXXXXX.img")
-    trap 'rm -f -- "${raw:-}" "${converted:-}"' EXIT
+    temp_files+=("$raw")
     xz -dc -- "$image" > "$raw"
     file "$raw"
     fdisk -l "$raw"
@@ -99,7 +107,7 @@ validate_vm() {
     "$qemu_img" check -f qcow2 "$qcow"
 
     converted=$(mktemp "${COSMOPOD_BUILD_ROOT:-"$HOME/.cache/cosmopod-os"}/vm-validate.XXXXXX.raw")
-    trap 'rm -f -- "${raw:-}" "${converted:-}"' EXIT
+    temp_files+=("$converted")
     "$qemu_img" convert -f qcow2 -O raw "$qcow" "$converted"
     file "$converted"
     fdisk -l "$converted"

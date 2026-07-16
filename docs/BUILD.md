@@ -148,9 +148,19 @@ formats, expected partition tables/filesystems/labels, Mender metadata and
 device compatibility, and BIOS/UEFI ISO boot files. The generated OS identity
 is `cosmopod` version `0.1.0`.
 
-No real Raspberry Pi boot or QEMU boot has been claimed. A full Raspberry Pi 5
-build also remains outstanding. Treat these artifacts as pre-release media
-until the acceptance work below passes.
+QEMU TCG smoke tests using a Core 2-capable CPU model reached a serial login
+from the BIOS live ISO and the UEFI QCOW2 disk. The QCOW2 root and data
+partitions mounted read-write and swap activated. ISO testing proved its tmpfs
+`/data` fallback, persistent-state setup, NetworkManager, first-boot
+provisioning, and key-only SSH daemon startup. It also found and drove fixes for
+an absent live mount point, unconditional NFSD mount, and expected read-only
+root remount. Weston still failed under the last tested virtio GPU run; the
+latest rebuild sends its fatal log to the boot console and requires a repeat
+smoke test before VM qualification.
+
+No real Raspberry Pi boot has been claimed. A full Raspberry Pi 5 build also
+remains outstanding. Treat these artifacts as pre-release media until the
+acceptance work below passes.
 
 ## Hardware acceptance gate
 

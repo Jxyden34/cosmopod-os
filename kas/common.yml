@@ -81,6 +81,11 @@ local_conf_header:
     PACKAGECONFIG:remove:pn-openssh = "systemd-sshd-socket-mode"
     PACKAGECONFIG:append:pn-openssh = " systemd-sshd-service-mode"
 
+    # Keep NFS client tools available without exposing server/RPC daemons on
+    # every fresh install. Operators can enable them deliberately if needed.
+    SYSTEMD_AUTO_ENABLE:pn-nfs-utils = "disable"
+    SYSTEMD_AUTO_ENABLE:pn-rpcbind = "disable"
+
     # Preserve backend selection across A/B rootfs replacement.
     MENDER_CONFIGURATION_VARS:append = " TenantToken"
     MENDER_PERSISTENT_CONFIGURATION_VARS:append = " ServerURL TenantToken"

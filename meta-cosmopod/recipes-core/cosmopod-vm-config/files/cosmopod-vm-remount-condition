@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+
+# systemd-remount-fs is useful for persistent VM disks, but a live ISO root is
+# intentionally read-only. Exit 1 from ExecCondition to skip it without a
+# failed unit when the current root mount is read-only.
+while read -r _ mountpoint _ options _; do
+    [ "$mountpoint" = / ] || continue
+    case ",$options," in
+        *,ro,*) exit 1 ;;
+        *) exit 0 ;;
+    esac
+done < /proc/self/mounts
+
+exit 0

@@ -105,9 +105,13 @@ Read [update system](docs/UPDATE-SYSTEM.md) before deploying an update.
 Version 0.1.0 completed full Yocto builds for Raspberry Pi 4 and x86-64 VM
 media. The exported Pi `.img.xz`, signed/unsigned Mender artifacts, VM `.iso`,
 and `.qcow2` passed offline checksum, format, partition, boot-file, and artifact
-validation. Raspberry Pi 5 source support is present, but a full Pi 5 build has
-not completed. These are pre-release results, not boot qualification: real Pi
-hardware tests, a VM boot smoke test, and production backend deployment at
+validation. QEMU smoke tests reached a Cosmopod serial login from both VM
+formats; the persistent QCOW2 mounted its root, data, and swap partitions. Live
+ISO testing found and fixed data, NFSD, and read-only-remount failures. The last
+booted ISO iteration still failed to start Weston under the test's virtual GPU;
+the latest rebuilt ISO includes console diagnostics and needs one repeat boot.
+Raspberry Pi 5 source support is present, but a full Pi 5 build has not
+completed. Real Pi hardware tests and production backend deployment at
 `https://kys.dpdns.org` remain outstanding. See [Build](docs/BUILD.md).
 
 ## License

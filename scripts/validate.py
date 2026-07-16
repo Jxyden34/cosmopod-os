@@ -59,6 +59,29 @@ def check_vm_image_scoping() -> None:
     for suffix in ("rootfs.iso", "rootfs.wic.qcow2"):
         if f"cosmopod-image-$machine.{suffix}" not in wrapper:
             fail(f"VM exporter must use Yocto's {suffix} deploy symlink")
+    vm_config = (
+        ROOT
+        / "meta-cosmopod/recipes-core/cosmopod-vm-config/cosmopod-vm-config_1.0.bb"
+    ).read_text(encoding="utf-8")
+    if "install -d -m 0755 ${D}/data" not in vm_config:
+        fail("VM image must pre-create /data for its read-only live ISO root")
+    image_recipe = (
+        ROOT / "meta-cosmopod/recipes-core/images/cosmopod-image.bb"
+    ).read_text(encoding="utf-8")
+    if (
+        "ROOTFS_POSTPROCESS_COMMAND:append:genericx86-64" not in image_recipe
+        or "/media/boot-sr0" not in image_recipe
+    ):
+        fail("VM image must pre-create live optical-media mount point")
+    if "cosmopod-vm-remount-condition" not in vm_config:
+        fail("VM image must skip root remount only when live root is read-only")
+    if "cosmopod-weston-vm.conf" not in vm_config:
+        fail("VM Weston failures must remain visible on the boot console")
+    nfs_append = (
+        ROOT / "meta-cosmopod/recipes-connectivity/nfs-utils/nfs-utils_%.bbappend"
+    ).read_text(encoding="utf-8")
+    if "sysinit.target.wants/proc-fs-nfsd.mount" not in nfs_append:
+        fail("disabled NFS server must not mount NFSD during normal boot")
 
 
 def check_board_package_scoping() -> None:
@@ -95,6 +118,84 @@ def check_host_compatibility_patches() -> None:
             fail(f"{name} host compatibility patch must be native-only")
         if "__once_flag_defined" not in patch.read_text(encoding="utf-8"):
             fail(f"{name} compatibility patch does not guard system once_flag")
+
+
+def check_product_features() -> None:
+    common = (ROOT / "kas/common.yml").read_text(encoding="utf-8")
+    distro = (ROOT / "meta-cosmopod/conf/distro/cosmopod.conf").read_text(
+        encoding="utf-8"
+    )
+    packagegroup = (
+        ROOT / "meta-cosmopod/recipes-core/packagegroups/packagegroup-cosmopod.bb"
+    ).read_text(encoding="utf-8")
+    sshd = (
+        ROOT
+        / "meta-cosmopod/recipes-core/cosmopod-config/files/50-cosmopod-sshd.conf"
+    ).read_text(encoding="utf-8")
+    mender = (
+        ROOT / "meta-cosmopod/recipes-mender/mender/mender_%.bbappend"
+    ).read_text(encoding="utf-8")
+
+    if 'MENDER_SERVER_URL ?= "https://kys.dpdns.org"' not in common:
+        fail("default Mender server must be https://kys.dpdns.org")
+    if (
+        'MENDER_PERSISTENT_CONFIGURATION_VARS:append = " ServerURL TenantToken"'
+        not in common
+    ):
+        fail("Mender server and tenant selection must survive A/B updates")
+    for recipe in ("nfs-utils", "rpcbind"):
+        if f'SYSTEMD_AUTO_ENABLE:pn-{recipe} = "disable"' not in common:
+            fail(f"{recipe} network daemons must be disabled by default")
+    if "wayland" not in distro or re.search(
+        r'^DISTRO_FEATURES:remove = "[^"]*x11', distro, re.MULTILINE
+    ) is None:
+        fail("Cosmopod distro must enable Wayland and remove X11")
+
+    required_packages = {
+        "openssh",
+        "networkmanager",
+        "nftables",
+        "weston",
+        "wayland-utils",
+        "git",
+        "curl",
+        "python3",
+        "gcc",
+        "g++",
+        "make",
+        "cmake",
+        "vim",
+        "nano",
+        "tmux",
+        "htop",
+        "nmap",
+        "tcpdump",
+    }
+    words = set(re.findall(r"[A-Za-z0-9+_.-]+", packagegroup))
+    missing = sorted(required_packages - words)
+    if missing:
+        fail(f"useful package set is missing: {', '.join(missing)}")
+
+    required_sshd = {
+        "PasswordAuthentication no",
+        "KbdInteractiveAuthentication no",
+        "PermitRootLogin no",
+        "PermitEmptyPasswords no",
+        "PubkeyAuthentication yes",
+        "AuthenticationMethods publickey",
+        "AllowUsers cosmopod",
+    }
+    ssh_lines = {
+        line.strip()
+        for line in sshd.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+    missing_sshd = sorted(required_sshd - ssh_lines)
+    if missing_sshd:
+        fail(f"SSH public-key-only policy is missing: {', '.join(missing_sshd)}")
+
+    if "artifact-verify-key.pem" not in mender:
+        fail("Mender public artifact verification key is not installed")
 
 
 def check_no_private_key() -> None:
@@ -156,6 +257,7 @@ def main() -> int:
         check_vm_image_scoping,
         check_board_package_scoping,
         check_host_compatibility_patches,
+        check_product_features,
         check_no_private_key,
         check_firstboot_module,
         check_python_syntax,
