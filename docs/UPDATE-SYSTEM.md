@@ -8,7 +8,8 @@ Implemented in this repository: A/B image integration, compiled-in RSA-3072
 artifact verification key, a 300-second health deadline requiring 120 seconds
 of continuous stability, persistent home/network/SSH/Mender state, separate Pi
 device types, signing helper, and backend templates. Version 0.1.0's Pi 4
-artifact was built, signed, and validated locally. Current GitHub CI performs
+artifact was built, signed, and validated locally, but predates the current
+source-provenance manifest and must not be promoted. Current GitHub CI performs
 source/unit checks; it does not yet build, sign, upload, or deploy releases.
 The production backend is not yet deployed. Hardware watchdog,
 data-schema migration/rollback, full UI self-test, retained diagnostics, and
@@ -62,9 +63,9 @@ U-Boot integration is board-specific and must be tested on real hardware. Mender
 
 ## Managed update flow
 
-1. The release procedure builds one unsigned `.mender` artifact for each supported device type and records the source commit, Yocto lock data, license/SPDX archives, test result, and SHA-256 digest. Automation of this step is backlog.
-2. A separate trusted signing step inspects the release evidence and signs the artifact with the production key.
-3. The signer validates the resulting artifact with the public key and records its final digest.
+1. The release procedure builds one unsigned `.mender` artifact for each supported device type and records the source commit, Yocto lock data, mandatory license/SPDX archives, image CVE report, CVE-gate decision, test result, and SHA-256 digest.
+2. An authenticated build record supplies the checksum-index and unsigned-artifact digests independently of the bundle sent to the offline signer.
+3. A separate trusted signing step verifies a private snapshot, signs the artifact, validates it with the public key, records its final digest, and signs the final release index.
 4. An operator uploads only the signed artifact to the Mender server as a release. Upload is not deployment.
 5. An operator creates a deployment for the next approved static device group.
 6. Each device polls the server over outbound HTTPS. No inbound device port is needed for Mender. Polling behavior is documented in [Mender client polling intervals](https://docs.mender.io/client-installation/configuration/polling-intervals).
@@ -134,20 +135,31 @@ Configure `ArtifactVerifyKey` or `ArtifactVerifyKeys` on the device. With a veri
 
 ### Sign and validate a release
 
-The trusted signer receives the unsigned artifact plus immutable release evidence. After review:
+The trusted signer receives the unsigned artifact plus immutable release
+evidence. The two approved hashes must arrive through a separate authenticated
+build record, not be copied from the untrusted transfer bundle. After review:
 
 ```sh
-mender-artifact sign cosmopod-1.4.0+20260715.3-rpi4-unsigned.mender \
-  -k cosmopod-prod-signing.key \
-  -o cosmopod-1.4.0+20260715.3-rpi4.mender
+scripts/sign-release.sh \
+  --approve-server-url https://updates.example.org \
+  --approve-build-index-sha256 <approved-sha256-of-SHA256SUMS> \
+  --approve-unsigned-sha256 <approved-sha256-of-unsigned-mender> \
+  out/1.4.0+20260715.3/pi4/Cosmopod-OS-1.4.0+20260715.3-pi4-unsigned.mender
 
-mender-artifact validate cosmopod-1.4.0+20260715.3-rpi4.mender \
-  -k artifact-verify-key.pem
-
-sha256sum cosmopod-1.4.0+20260715.3-rpi4.mender
+openssl dgst -sha256 -verify artifact-verify-key.pem \
+  -signature out/1.4.0+20260715.3/pi4/SHA256SUMS.sig \
+  out/1.4.0+20260715.3/pi4/SHA256SUMS
 ```
 
-Repeat for Pi 5. Publish only the signed output. Record artifact name, release name, compatible device type, final digest, source commit, SBOM digest, signer identity, approvers, and signing time in the release ledger.
+Repeat for Pi 5. Upload only the signed `.mender` to Mender; publish its
+authenticated evidence set as release records. Record artifact name, release
+name, compatible device type, final digest, source commit, SBOM digest, signer
+identity, approvers, and signing time in the release ledger.
+
+The builder's original index is not attestation; the independent approved
+digest is the transfer trust anchor. After signing, `SHA256SUMS.sig`
+authenticates the final Pi index and the sidecars it covers. Factory/VM media
+still require an authenticated release ledger or separate signed provenance.
 
 ### Verification-key rotation
 

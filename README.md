@@ -8,6 +8,11 @@ tools, and receive robust A/B updates on Raspberry Pi from a Mender backend.
 Pi generations and x86 VMs use separate boot targets; one kernel/boot image is
 not treated as universal hardware media.
 
+Development builds advance through `0.x.0` iterations. `1.0.0` is reserved
+for the first release that passes the complete Pi, VM, Wayland, SSH, OTA,
+backend, security, and publishing qualification described in
+[`docs/VERSIONING.md`](docs/VERSIONING.md).
+
 ## What it produces
 
 - `Cosmopod-OS-<version>-pi4.img.xz` or `...-pi5.img.xz`: factory image for an
@@ -16,9 +21,12 @@ not treated as universal hardware media.
   emitted by the build. The offline signing helper creates the publishable
   `...-<board>.mender` artifact for devices already running Cosmopod OS.
 - `Cosmopod-OS-<version>-vm-x86_64.iso`: hybrid BIOS/UEFI live VM boot media.
+- `Cosmopod-OS-<version>-vm-x86_64.iso.xz`: compressed ISO for GitHub Release
+  distribution; decompress it before attaching it to a VM.
 - `Cosmopod-OS-<version>-vm-x86_64.qcow2`: persistent EFI VM disk.
-- `SHA256SUMS`: release integrity hashes.
-- complete SPDX and license-manifest archives when Yocto emits them.
+- `SHA256SUMS`: exact release integrity hashes; signed Pi releases also contain
+  `SHA256SUMS.sig`, authenticated by the device artifact key.
+- required SPDX SBOM, license-manifest, CVE report, and CVE-gate evidence.
 
 A Raspberry Pi does not boot a normal ISO9660 `.iso`. Its firmware needs a
 partitioned disk image containing a FAT boot partition. The `.img.xz` file is
@@ -28,6 +36,7 @@ balenaEtcher, or `dd`. The ISO is for x86-64 VMs only.
 ## Included
 
 - Yocto Project 5.0 Scarthgap LTS, pinned by immutable commits
+- Patched KAS 5.4 bootstrap with digest-pinned container and hash-locked native wheels
 - Linux, systemd, U-Boot, NetworkManager, nftables, chrony
 - Wayland with Weston and VC4 KMS graphics
 - OpenSSH: public-key authentication only, no root/password login
@@ -79,8 +88,14 @@ release to selected Pi devices or groups. The configured endpoint is
 `https://kys.dpdns.org`; production DNS/TLS/server setup is still required.
 
 ```bash
-# After a build, sign the OTA artifact offline.
-scripts/sign-release.sh out/0.1.0/pi4/Cosmopod-OS-0.1.0-pi4-unsigned.mender
+# Values must come from an authenticated build record, independently of the
+# bundle copied to the offline signer.
+BUILD_INDEX_SHA256=<approved-sha256-of-SHA256SUMS>
+UNSIGNED_SHA256=<approved-sha256-of-unsigned-mender>
+scripts/sign-release.sh --approve-server-url https://updates.example.org \
+  --approve-build-index-sha256 "$BUILD_INDEX_SHA256" \
+  --approve-unsigned-sha256 "$UNSIGNED_SHA256" \
+  out/0.1.0/pi4/Cosmopod-OS-0.1.0-pi4-unsigned.mender
 
 # Local evaluation backend; not production configuration.
 backend/scripts/bootstrap-evaluation.sh
@@ -105,7 +120,10 @@ Read [update system](docs/UPDATE-SYSTEM.md) before deploying an update.
 Version 0.1.0 completed full Yocto builds for Raspberry Pi 4 and x86-64 VM
 media. The exported Pi `.img.xz`, signed/unsigned Mender artifacts, VM `.iso`,
 and `.qcow2` passed offline checksum, format, partition, boot-file, and artifact
-validation. QEMU smoke tests reached a Cosmopod serial login from both VM
+validation at build time. They predate the current clean-source provenance
+manifest, later boot fixes, and VM reporter, so they remain historical
+pre-release evidence and must be rebuilt from a new clean commit. QEMU smoke
+tests reached a Cosmopod serial login from both VM
 formats; the persistent QCOW2 mounted its root, data, and swap partitions. Live
 ISO testing found and fixed data, NFSD, and read-only-remount failures. The last
 booted ISO iteration still failed to start Weston under the test's virtual GPU;

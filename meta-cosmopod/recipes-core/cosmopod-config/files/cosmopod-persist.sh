@@ -57,13 +57,26 @@ if [ -s "$state/wifi-country" ]; then
     esac
 fi
 
-if [ ! -s "$hostkeys/ssh_host_ed25519_key" ]; then
-    ssh-keygen -q -t ed25519 -N '' -f "$hostkeys/ssh_host_ed25519_key"
-fi
-
-if [ ! -s "$hostkeys/ssh_host_rsa_key" ]; then
-    ssh-keygen -q -t rsa -b 3072 -N '' -f "$hostkeys/ssh_host_rsa_key"
-fi
+for private_key in \
+    "$hostkeys/ssh_host_ed25519_key" \
+    "$hostkeys/ssh_host_rsa_key"
+do
+    if ! [ -s "$private_key" ] || \
+        ! ssh-keygen -y -f "$private_key" >/dev/null 2>&1
+    then
+        echo "Cosmopod SSH host key is missing or invalid: $private_key" >&2
+        exit 1
+    fi
+    public_key="$private_key.pub"
+    if [ ! -s "$public_key" ]; then
+        public_key_tmp="$public_key.tmp.$$"
+        trap 'rm -f "$public_key_tmp"' EXIT HUP INT TERM
+        ssh-keygen -y -f "$private_key" > "$public_key_tmp"
+        chmod 0644 "$public_key_tmp"
+        mv -f "$public_key_tmp" "$public_key"
+        trap - EXIT HUP INT TERM
+    fi
+done
 
 chmod 0600 "$hostkeys"/ssh_host_*_key
 chmod 0644 "$hostkeys"/ssh_host_*_key.pub

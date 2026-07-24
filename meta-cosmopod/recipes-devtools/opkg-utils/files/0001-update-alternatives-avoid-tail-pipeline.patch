@@ -1,0 +1,31 @@
+From 32a42c7ec47cf43e0cc466d946c84a2b25fa6cc8 Mon Sep 17 00:00:00 2001
+From: Cosmopod OS <cosmopod-os@localhost>
+Date: Thu, 23 Jul 2026 12:00:00 +0100
+Subject: [PATCH] update-alternatives: avoid tail pipeline
+
+When update-alternatives runs under pseudo on newer hosts, tail can lose its
+standard input and return an empty provider path. Select the final matching
+line directly with sed instead.
+
+Upstream-Status: Inappropriate [Cosmopod host compatibility]
+Signed-off-by: Cosmopod OS <cosmopod-os@localhost>
+---
+ update-alternatives | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/update-alternatives b/update-alternatives
+index e0b31bf..5cc3f12 100644
+--- a/update-alternatives
++++ b/update-alternatives
+@@ -117,7 +117,7 @@ remove_alt() {
+ 	fi
+ 
+ 	## Find last line with highest priority.
+-	path=`grep "${prio}$" $ad/$name | tail -n 1 | sed 's/ [^ ]*$//'`
++	path=`grep "${prio}$" $ad/$name | sed -n '$s/ [^ ]*$//p'`
+ 
+ 	if [ ! -e $link -o -L $link ]; then
+ 		local link_dir=`dirname $link`
+-- 
+2.47.3
+

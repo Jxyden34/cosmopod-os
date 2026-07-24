@@ -19,13 +19,162 @@ jobs:
       - run: python -m unittest discover -s tests -v
       - name: Parse shell scripts
         run: |
-          bash -n scripts/*.sh backend/scripts/*.sh \
+          bash -n scripts/*.sh backend/scripts/*.sh backend/production/*.sh \
             meta-cosmopod/recipes-core/cosmopod-config/files/cosmopod-persist.sh \
             meta-cosmopod/recipes-core/cosmopod-config/files/ArtifactCommit_Enter_50_cosmopod-health \
             meta-cosmopod/recipes-core/cosmopod-vm-config/files/cosmopod-vm-data \
             meta-cosmopod/recipes-core/cosmopod-vm-config/files/cosmopod-vm-remount-condition \
             meta-cosmopod/recipes-core/cosmopod-vm-config/files/cosmopod-vm-smoke-condition \
             meta-cosmopod/recipes-core/cosmopod-vm-config/files/cosmopod-vm-smoke
+      - name: ShellCheck backend scripts
+        run: |
+          shellcheck --severity=error --external-sources \
+            backend/scripts/*.sh \
+            backend/production/preflight.sh \
+            backend/production/deploy.sh \
+            backend/production/postflight.sh
+      - name: Check production deployment safety contract
+        run: |
+          test -x backend/production/preflight.sh
+          test -x backend/production/deploy.sh
+          test -x backend/production/postflight.sh
+          bash backend/production/preflight.sh --help >/dev/null
+          bash backend/production/deploy.sh --help >/dev/null
+          bash backend/production/postflight.sh --help >/dev/null
+          grep -Fq -- '--atomic' backend/production/deploy.sh
+          grep -Fq -- 'x-men-requestid:' backend/production/postflight.sh
+          grep -Fq -- 'cosmopod-mender-nats' backend/production/values.yaml
+          if bash backend/production/deploy.sh \
+            --context production \
+            --hostname kys.dpdns.org \
+            --ingress-class nginx \
+            --storage-class standard \
+            --approve-hostname kys.dpdns.org \
+            --confirm-backup snapshot-20260716 >/dev/null 2>&1; then
+            echo 'production deploy accepted missing --apply gate' >&2
+            exit 1
+          fi
+          if bash backend/production/deploy.sh \
+            --context production \
+            --hostname kys.dpdns.org \
+            --ingress-class nginx \
+            --storage-class standard \
+            --apply \
+            --approve-hostname wrong.dpdns.org \
+            --confirm-backup snapshot-20260716 >/dev/null 2>&1; then
+            echo 'production deploy accepted wrong hostname approval' >&2
+            exit 1
+          fi
+          if grep -Fq -- '--create-namespace' backend/production/deploy.sh; then
+            echo 'production deploy must not create namespace' >&2
+            exit 1
+          fi
+          tracked_sensitive="$(git ls-files backend/production | \
+            grep -Ei '(kubeconfig|tfstate|\.tfvars$|values\..*private|secret.*\.ya?ml|credentials.*\.ya?ml)' || true)"
+          if [[ -n "${tracked_sensitive}" ]]; then
+            echo 'sensitive production file is tracked' >&2
+            exit 1
+          fi
+      - name: Test production NetworkPolicy guard
+        run: |
+          source backend/production/_common.sh
+          allow_all='{"spec":{"podSelector":{"matchLabels":{"app.kubernetes.io/instance":"cosmopod-mender"}},"policyTypes":["Ingress","Egress"],"ingress":[{}],"egress":[{}]}}'
+          if printf '%s\n' "${allow_all}" | mender_allow_network_policy_is_safe; then
+            echo 'allow-all NetworkPolicy passed production guard' >&2
+            exit 1
+          fi
+          empty_selector='{"spec":{"podSelector":{"matchLabels":{"app.kubernetes.io/instance":"cosmopod-mender"}},"policyTypes":["Ingress","Egress"],"ingress":[{"from":[{"namespaceSelector":{}}],"ports":[{"port":8080}]}],"egress":[{"to":[{"podSelector":{}}],"ports":[{"port":443}]}]}}'
+          if printf '%s\n' "${empty_selector}" | mender_allow_network_policy_is_safe; then
+            echo 'empty NetworkPolicy selector passed production guard' >&2
+            exit 1
+          fi
+          broad_expression='{"spec":{"podSelector":{"matchLabels":{"app.kubernetes.io/instance":"cosmopod-mender"}},"policyTypes":["Ingress","Egress"],"ingress":[{"from":[{"namespaceSelector":{"matchExpressions":[{"key":"blocked","operator":"DoesNotExist"}]}}],"ports":[{"port":8080}]}],"egress":[{"to":[{"podSelector":{"matchExpressions":[{"key":"app","operator":"Exists"}]}}],"ports":[{"port":443}]}]}}'
+          if printf '%s\n' "${broad_expression}" | mender_allow_network_policy_is_safe; then
+            echo 'broad selector expression passed production guard' >&2
+            exit 1
+          fi
+          world_cidr='{"spec":{"podSelector":{"matchLabels":{"app.kubernetes.io/instance":"cosmopod-mender"}},"policyTypes":["Ingress","Egress"],"ingress":[{"from":[{"ipBlock":{"cidr":"0.0.0.0/0"}}],"ports":[{"port":8080}]}],"egress":[{"to":[{"ipBlock":{"cidr":"::/0"}}],"ports":[{"port":443}]}]}}'
+          if printf '%s\n' "${world_cidr}" | mender_allow_network_policy_is_safe; then
+            echo 'world CIDR NetworkPolicy passed production guard' >&2
+            exit 1
+          fi
+          split_world='{"spec":{"podSelector":{"matchLabels":{"app.kubernetes.io/instance":"cosmopod-mender"}},"policyTypes":["Ingress","Egress"],"ingress":[{"from":[{"ipBlock":{"cidr":"0.0.0.0/1"}},{"ipBlock":{"cidr":"128.0.0.0/1"}}],"ports":[{"port":8080}]}],"egress":[{"to":[{"ipBlock":{"cidr":"::/1"}},{"ipBlock":{"cidr":"8000::/1"}}],"ports":[{"port":443}]}]}}'
+          if printf '%s\n' "${split_world}" | mender_allow_network_policy_is_safe; then
+            echo 'aggregate world CIDRs passed production guard' >&2
+            exit 1
+          fi
+          all_ports='{"spec":{"podSelector":{"matchLabels":{"app.kubernetes.io/instance":"cosmopod-mender"}},"policyTypes":["Ingress","Egress"],"ingress":[{"from":[{"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"ingress-nginx"}}}],"ports":[{}]}],"egress":[{"to":[{"ipBlock":{"cidr":"10.0.0.0/8"}}],"ports":[{}]}]}}'
+          if printf '%s\n' "${all_ports}" | mender_allow_network_policy_is_safe; then
+            echo 'all-ports NetworkPolicy passed production guard' >&2
+            exit 1
+          fi
+          port_range='{"spec":{"podSelector":{"matchLabels":{"app.kubernetes.io/instance":"cosmopod-mender"}},"policyTypes":["Ingress","Egress"],"ingress":[{"from":[{"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"ingress-nginx"}}}],"ports":[{"port":1,"endPort":65535}]}],"egress":[{"to":[{"ipBlock":{"cidr":"10.0.0.0/8"}}],"ports":[{"port":443}]}]}}'
+          if printf '%s\n' "${port_range}" | mender_allow_network_policy_is_safe; then
+            echo 'endPort range passed production guard' >&2
+            exit 1
+          fi
+          scoped='{"spec":{"podSelector":{"matchLabels":{"app.kubernetes.io/instance":"cosmopod-mender"}},"policyTypes":["Ingress","Egress"],"ingress":[{"from":[{"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"ingress-nginx"}}}],"ports":[{"port":8080,"protocol":"TCP"}]}],"egress":[{"to":[{"ipBlock":{"cidr":"10.0.0.0/8"}}],"ports":[{"port":443,"protocol":"TCP"}]}]}}'
+          printf '%s\n' "${scoped}" | mender_allow_network_policy_is_safe
+          approved_inventory='{"items":[{"metadata":{"name":"cosmopod-default-deny"},"spec":{"podSelector":{}}},{"metadata":{"name":"cosmopod-mender-allow"},"spec":{"podSelector":{"matchLabels":{"app.kubernetes.io/instance":"cosmopod-mender"}}}}]}'
+          printf '%s\n' "${approved_inventory}" | network_policy_inventory_is_safe
+          selecting_extra='{"items":[{"metadata":{"name":"cosmopod-default-deny"},"spec":{"podSelector":{}}},{"metadata":{"name":"cosmopod-mender-allow"},"spec":{"podSelector":{"matchLabels":{"app.kubernetes.io/instance":"cosmopod-mender"}}}},{"metadata":{"name":"unapproved"},"spec":{"podSelector":{"matchLabels":{"app.kubernetes.io/name":"cosmopod-mender-deployments"}}}}]}'
+          if printf '%s\n' "${selecting_extra}" | network_policy_inventory_is_safe; then
+            echo 'unapproved NetworkPolicy that can select Mender passed inventory guard' >&2
+            exit 1
+          fi
+          excluded_extra='{"items":[{"metadata":{"name":"cosmopod-default-deny"},"spec":{"podSelector":{}}},{"metadata":{"name":"cosmopod-mender-allow"},"spec":{"podSelector":{"matchLabels":{"app.kubernetes.io/instance":"cosmopod-mender"}}}},{"metadata":{"name":"other-release"},"spec":{"podSelector":{"matchLabels":{"app.kubernetes.io/instance":"another-release"}}}}]}'
+          printf '%s\n' "${excluded_extra}" | network_policy_inventory_is_safe
+      - name: Test production secret transport guards
+        run: |
+          source backend/production/_common.sh
+          printf '%s\n' 'https://s3.example.invalid' | https_url_is_safe
+          ! printf '%s\n' 'http://s3.example.invalid' | https_url_is_safe
+          printf '%s\n' 'true' | smtp_ssl_is_safe
+          ! printf '%s\n' 'false' | smtp_ssl_is_safe
+          printf '%s\n' 'tls://user:password@nats.example.invalid:4222' | nats_url_is_safe
+          ! printf '%s\n' 'nats://user:password@nats.example.invalid:4222' | nats_url_is_safe
+          printf '%s\n' 'mongodb+srv://user:password@mongo.example.invalid/mender' | mongodb_url_is_safe
+          printf '%s\n' 'mongodb://user:password@mongo.example.invalid/mender?tls=true' | mongodb_url_is_safe
+          ! printf '%s\n' 'mongodb+srv://user:password@mongo.example.invalid/mender?tls=false' | mongodb_url_is_safe
+          ! printf '%s\n' 'mongodb://user:password@mongo.example.invalid/mender' | mongodb_url_is_safe
+          ! printf '%s\n' 'mongodb+srv://user:password@mongo.example.invalid/mender?tlsInsecure=true' | mongodb_url_is_safe
+          ! printf '%s\n' 'mongodb://user:password@mongo.example.invalid/mender?tls=true&tlsAllowInvalidCertificates=true' | mongodb_url_is_safe
+          ! printf '%s\n' 'mongodb://user:password@mongo.example.invalid/mender?TLS=true&TLSALLOWINVALIDHOSTNAMES=TRUE' | mongodb_url_is_safe
+          ! printf '%s\n' 'mongodb://user:password@mongo.example.invalid/mender?tls=true&sslAllowInvalidCertificates=true' | mongodb_url_is_safe
+          printf '%s\n' '{"metadata":{"annotations":{"eks.amazonaws.com/role-arn":"arn:aws:iam::123456789012:role/cosmopod-mender"}}}' | irsa_service_account_is_safe
+          ! printf '%s\n' '{"metadata":{"annotations":{"iam.gke.io/gcp-service-account":"mender@example.invalid"}}}' | irsa_service_account_is_safe
+      - name: Verify and render pinned Mender chart
+        run: |
+          chart=/tmp/mender-7.7.4.tgz
+          rendered=/tmp/cosmopod-mender-ci.yaml
+          trap 'rm -f -- "${chart}" "${rendered}"' EXIT
+          rm -f -- "${chart}" "${rendered}"
+          helm repo add mender https://charts.mender.io --force-update
+          helm pull mender/mender --version 7.7.4 --destination /tmp
+          echo '1ed0eb4bf3d3af5108483bbbdab37c17090eb49b1e3010eefe3174a26fdefc40  /tmp/mender-7.7.4.tgz' | sha256sum --check
+          helm show chart "${chart}" | grep -Fq 'appVersion: v4.1.1'
+          helm template cosmopod-mender "${chart}" \
+            --namespace mender \
+            --values backend/production/values.yaml \
+            --set-string global.url=https://kys.dpdns.org \
+            --set-string global.mongodb.existingSecret=cosmopod-mender-mongodb \
+            --set-string global.nats.existingSecret=cosmopod-mender-nats \
+            --set-string global.smtp.existingSecret=cosmopod-mender-smtp \
+            --set-string global.s3.existingSecret=cosmopod-mender-s3 \
+            --set nats.enabled=false \
+            --set-string ingress.ingressClassName=nginx \
+            --set-string ingress.hosts[0]=kys.dpdns.org \
+            --set-string ingress.tls[0].secretName=mender-ingress-tls \
+            --set-string ingress.tls[0].hosts[0]=kys.dpdns.org \
+            --set-string device_auth.certs.existingSecret=cosmopod-mender-deviceauth-signing \
+            --set-string useradm.certs.existingSecret=cosmopod-mender-useradm-signing \
+            > "${rendered}"
+          grep -Fq 'host: "kys.dpdns.org"' "${rendered}"
+          grep -Fq 'ingressClassName: nginx' "${rendered}"
+          grep -Fq 'cosmopod-mender-nats' "${rendered}"
+          grep -Fq 'mender-ingress-tls' "${rendered}"
+          source backend/production/_common.sh
+          validate_rendered_secret_references "${rendered}"
       - name: Parse PowerShell wrapper
         shell: pwsh
         run: |

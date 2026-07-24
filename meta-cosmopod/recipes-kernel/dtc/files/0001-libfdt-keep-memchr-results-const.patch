@@ -1,0 +1,30 @@
+From: Cosmopod OS Build Team <builds@cosmopod.invalid>
+Date: Thu, 23 Jul 2026 23:55:00 +0100
+Subject: [PATCH] libfdt: keep memchr results const
+
+The overlay fixup strings come from a const property buffer.  Newer glibc
+headers preserve that qualifier through memchr, so make the separator pointer
+const as well.  No data is modified through it.
+
+Upstream-Status: Pending
+
+---
+ libfdt/fdt_overlay.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/libfdt/fdt_overlay.c b/libfdt/fdt_overlay.c
+index 5c0c398..927d47d 100644
+--- a/libfdt/fdt_overlay.c
++++ b/libfdt/fdt_overlay.c
+@@ -430,7 +430,8 @@ static int overlay_fixup_phandle(void *fdt, void *fdto, int symbols_off,
+ 		const char *fixup_str = value;
+ 		uint32_t path_len, name_len;
+ 		uint32_t fixup_len;
+-		char *sep, *endptr;
++		const char *sep;
++		char *endptr;
+ 		int poffset, ret;
+ 
+ 		fixup_end = memchr(value, '\0', len);
+-- 
+2.43.0

@@ -14,7 +14,7 @@ but it is not a complete Raspberry Pi secure-boot product.
 - Mender URL requires HTTPS unless lab-only insecure override is explicit.
 - Provisioning parser uses an allowlist and no shell evaluation.
 - Upstream Yocto layers and CI actions pinned to full commits.
-- SPDX archive, license manifests, and checksums generated with release builds.
+- SPDX, license, CVE report, CVE gate, and checksums required for release export.
 - Private signing key and backend secrets ignored by Git.
 
 ## Private signing key
@@ -32,6 +32,37 @@ Production rules:
    key from devices.
 
 The repository public key is not secret.
+
+New key initialization uses ECDSA P-256. The committed RSA-3072 verification
+key remains a development trust root for historical media, not production-key
+custody evidence.
+
+## Vulnerability release gate
+
+Yocto `cve-check` runs for every image and emits an image-specific JSON report.
+Release export blocks unpatched/unknown findings with CVSS 7.0 or higher and
+unscored unresolved findings. Exceptions require exact package/CVE scope,
+expiry, justification, approver, and HTTPS tracking record in
+`security/cve-waivers.json`. Export also rejects an NVD database more than 48
+hours old and records its digest, modification time, and measured age. CVE
+coverage is checked against every source-bearing recipe in the image license
+manifest. Metadata-only `packagegroup-*` recipes are excluded, and
+`glibc-locale` is covered by its source recipe, `glibc`. CVE matching is
+advisory data, not proof of
+absence; security review must also cover upstream advisories and configuration.
+Dirty-tree development media may retain a failed gate for boot testing only.
+Its manifest records `release_qualified=false`, gate decision, and denied
+count; signing and clean release promotion remain blocked.
+
+## Provenance boundary
+
+The initial builder manifest and checksum index do not authenticate builder
+identity or prove reproducibility. Offline signing requires independently
+approved builder-index and unsigned-artifact hashes. The signer then
+authenticates the final Pi `SHA256SUMS` as `SHA256SUMS.sig`, binding every Pi
+release sidecar covered by that index. Factory and VM media remain outside this
+Pi signing envelope and require signed provenance or an authenticated,
+append-only release ledger before production publication.
 
 ## Backend
 
@@ -61,8 +92,9 @@ The repository public key is not secret.
   releases. Artifact signatures stop forged releases, not every replay/freeze
   scenario.
 - Flash wear-leveling makes secure deletion of provisioning secrets unreliable.
-- The KAS container tag and transitive PyPI packages are version-pinned but not
-  yet digest/hash locked; production CI must close this supply-chain gap.
+- Builder host kernel, container runtime, compiler execution, and shared-state
+  cache are not independently attested; pinned KAS image/dependency hashes do
+  not make build output reproducible by themselves.
 
 ## Production hardening backlog
 

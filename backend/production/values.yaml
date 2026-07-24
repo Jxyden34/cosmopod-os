@@ -10,7 +10,7 @@ global:
     existingSecret: cosmopod-mender-mongodb
     URL: ""
   nats:
-    existingSecret: ""
+    existingSecret: cosmopod-mender-nats
     URL: ""
   smtp:
     existingSecret: cosmopod-mender-smtp
@@ -61,23 +61,10 @@ mongodb:
 redis:
   enabled: false
 
-# Chart-pinned NATS 2.9 deployment. Use cluster-default encrypted storage or
-# set nats.nats.jetstream.fileStorage.storageClassName for the target cluster.
+# Production NATS is external, authenticated, persistent, monitored, and
+# supplied through cosmopod-mender-nats. The convenience subchart is disabled.
 nats:
-  enabled: true
-  replicas: 3
-  cluster:
-    enabled: true
-    replicas: 3
-  nats:
-    jetstream:
-      enabled: true
-      memStorage:
-        enabled: true
-        size: 1Gi
-      fileStorage:
-        enabled: true
-        size: 20Gi
+  enabled: false
 
 api_gateway:
   dashboard: false

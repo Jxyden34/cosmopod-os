@@ -25,8 +25,8 @@ Bootstrap initializes `backend/.state/mender-server`, fetches only official
 Mender Server commit
 `c5edfdb18b05e7f623580a53c2180fc45ae5f157` (`v4.1.1`), checks the exact
 checkout, validates Compose configuration, and refuses unexpected remotes or
-dirty checkout replacement. It does not edit `/etc/hosts`, create users, or
-write secrets.
+any dirty or untracked checkout. It does not edit `/etc/hosts`, create users,
+or write secrets.
 
 Review and add this lab-only host mapping yourself if status reports it
 missing:

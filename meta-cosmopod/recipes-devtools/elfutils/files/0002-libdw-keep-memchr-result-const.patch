@@ -1,0 +1,47 @@
+From: Cosmopod OS Build Team <builds@cosmopod.invalid>
+Date: Thu, 23 Jul 2026 23:15:00 +0100
+Subject: [PATCH] libdw: keep memchr results const
+
+glibc 2.43 exposes const-correct string search declarations in this build
+mode.  The returned pointers are only used to inspect the input buffer, so
+preserve their const qualifier.
+
+Upstream-Status: Pending
+
+---
+ libdw/dwarf_getsrclines.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/libdw/dwarf_getsrclines.c b/libdw/dwarf_getsrclines.c
+index 2f2b18f..aa56697 100644
+--- a/libdw/dwarf_getsrclines.c
++++ b/libdw/dwarf_getsrclines.c
+@@ -329,7 +329,7 @@ read_srclines (Dwarf *dbg, Dwarf_Off debug_line_offset,
+       const unsigned char *dirp = linep;
+       while (dirp < lineendp && *dirp != 0)
+ 	{
+-	  uint8_t *endp = memchr (dirp, '\0', lineendp - dirp);
++	  const uint8_t *endp = memchr (dirp, '\0', lineendp - dirp);
+ 	  if (endp == NULL)
+ 	    goto invalid_data;
+ 	  ++ndirs;
+@@ -405,7 +405,7 @@ read_srclines (Dwarf *dbg, Dwarf_Off debug_line_offset,
+       for (unsigned int n = 1; n < ndirlist; n++)
+ 	{
+ 	  dirarray[n].dir = (char *) linep;
+-	  uint8_t *endp = memchr (linep, '\0', lineendp - linep);
++	  const uint8_t *endp = memchr (linep, '\0', lineendp - linep);
+ 	  assert (endp != NULL); // Checked above when calculating ndirlist.
+ 	  dirarray[n].len = endp - linep;
+ 	  linep = endp + 1;
+@@ -793,7 +793,7 @@ read_srclines (Dwarf *dbg, Dwarf_Off debug_line_offset,
+ 	    case DW_LNE_define_file:
+ 	      {
+ 		char *fname = (char *) linep;
+-		uint8_t *endp = memchr (linep, '\0', lineendp - linep);
++		const uint8_t *endp = memchr (linep, '\0', lineendp - linep);
+ 		if (endp == NULL)
+ 		  goto invalid_data;
+ 		size_t fnamelen = endp - linep;
+-- 
+2.43.0

@@ -9,6 +9,8 @@ The `vm` target builds the same Cosmopod Wayland userspace for x86-64:
 Outputs:
 
 - `Cosmopod-OS-0.1.0-vm-x86_64.iso`: hybrid BIOS/UEFI live media.
+- `Cosmopod-OS-0.1.0-vm-x86_64.iso.xz`: compressed GitHub Release download;
+  decompress it to recover the byte-identical ISO.
 - `Cosmopod-OS-0.1.0-vm-x86_64.qcow2`: persistent EFI disk for QEMU,
   libvirt, UTM, or conversion to another hypervisor format.
 
@@ -88,7 +90,9 @@ Snapshot-mode QEMU testing reached serial login from both media types. QCOW2
 mounted its ext4 root and `cosmopod-data` partitions read-write and activated
 swap. The live ISO reached multi-user and graphical targets with tmpfs `/data`,
 NetworkManager, provisioning, and OpenSSH active. Remaining qualification item:
-Weston failed under the last tested virtio-vga run. The current media exposes
+Weston failed under the last tested virtio-vga run. Current source selects
+Weston's Pixman software renderer and builds Hyper-V DRM/input/network/storage
+drivers plus common virtual-display drivers into the VM kernel. The media exposes
 its fatal log on the console. Source now also contains a non-interactive smoke
 reporter and host runner, but the media must be rebuilt and pass that runner
 before claiming a working VM desktop.

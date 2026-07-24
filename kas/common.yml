@@ -13,19 +13,19 @@ repos:
 
   openembedded-core:
     url: https://git.openembedded.org/openembedded-core.git
-    commit: 6988157ad983978ffd6b12bcefedd4deaffdbbd1
+    commit: 54077a2d6b1a492178c3ba2e62ab4a02b7a48bcc
     layers:
       meta:
 
   bitbake:
     url: https://git.openembedded.org/bitbake.git
-    commit: 8dcf084522b9c66a6639b5f117f554fde9b6b45a
+    commit: 918cda91649c7591c7a7b857f137cce3e83edbac
     layers:
       bitbake: disabled
 
   meta-yocto:
     url: https://git.yoctoproject.org/meta-yocto.git
-    commit: 9bb6e6e8b016a0c9dfe290369a6ed91ef4020535
+    commit: 097ee32b47234d79f2ff223ac81e740cedd75005
     layers:
       meta-poky:
       meta-yocto-bsp:
@@ -63,16 +63,26 @@ local_conf_header:
     PACKAGE_CLASSES = "package_ipk"
     LICENSE_FLAGS_ACCEPTED:append = " synaptics-killswitch"
 
-    INHERIT += "create-spdx"
+    INHERIT += "create-spdx cve-check"
     SPDX_INCLUDE_SOURCES = "0"
     SPDX_ARCHIVE_PACKAGED = "0"
     SPDX_PRETTY = "1"
+    COPY_LIC_MANIFEST = "1"
+    COPY_LIC_DIRS = "1"
+    CVE_CHECK_CREATE_MANIFEST = "1"
+    CVE_CHECK_MANIFEST_JSON_SUFFIX = "cve.json"
+    CVE_CHECK_REPORT_PATCHED = "1"
+    # Keep complete text/JSON evidence, but do not emit the entire kernel CVE
+    # set as one console line.  That exceeds KAS/Python's stream line limit.
+    CVE_CHECK_SHOW_WARNINGS = "0"
+    CVE_DB_UPDATE_INTERVAL = "0"
+    include conf/distro/include/cve-extra-exclusions.inc
     ARTIFACTIMG_FSTYPE = "ext4"
     MENDER_STORAGE_TOTAL_SIZE_MB = "7450"
     MENDER_BOOT_PART_SIZE_MB = "256"
     MENDER_DATA_PART_SIZE_MB = "1024"
 
-    COSMOPOD_VERSION ?= "0.1.0-dev"
+    COSMOPOD_VERSION ?= "0.22.0-dev"
     MENDER_ARTIFACT_NAME ?= "cosmopod-os-${COSMOPOD_VERSION}-${MACHINE}"
     MENDER_SERVER_URL ?= "https://kys.dpdns.org"
     MENDER_TENANT_TOKEN ?= ""

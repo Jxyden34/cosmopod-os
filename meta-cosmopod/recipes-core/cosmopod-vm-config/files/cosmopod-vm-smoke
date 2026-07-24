@@ -37,6 +37,23 @@ check_service() {
     fi
 }
 
+emit_weston_diagnostics() {
+    emit "COSMOPOD_WESTON_LOG_BEGIN"
+    systemctl show weston.service \
+        -p ActiveState -p SubState -p Result -p ExecMainCode -p ExecMainStatus \
+        --no-pager >&3 2>&3 || true
+    journalctl -b -u weston.service --no-pager -o short-monotonic >&3 2>&3 || true
+    if [ -r /run/user/1000/weston.log ]; then
+        cat /run/user/1000/weston.log >&3 2>&3 || true
+    fi
+    if ! systemctl is-active --quiet weston.service; then
+        ls -l /dev/dri >&3 2>&3 || true
+        loginctl >&3 2>&3 || true
+        id cosmopod >&3 2>&3 || true
+    fi
+    emit "COSMOPOD_WESTON_LOG_END"
+}
+
 mount_options() {
     findmnt -n -o OPTIONS --target "$1" 2>/dev/null || true
 }
@@ -57,6 +74,11 @@ check_effective_sshd_value() {
     else
         fail_check "sshd.$key" "expected=$expected"
     fi
+}
+
+sshd_is_listening() {
+    awk '$2 ~ /:0016$/ && $4 == "0A" { found=1 } END { exit !found }' \
+        /proc/net/tcp /proc/net/tcp6 2>/dev/null
 }
 
 emit "COSMOPOD_SMOKE_BEGIN media=$media"
@@ -91,10 +113,22 @@ for service in \
 do
     check_service "$service"
 done
-# Give agetty time to write the literal login prompt before this reporter can
-# request shutdown. The host records both markers as independent boot evidence.
+if ! systemctl is-active --quiet cosmopod-persist.service; then
+    emit "COSMOPOD_PERSIST_LOG_BEGIN"
+    systemctl show cosmopod-persist.service \
+        -p ActiveState -p SubState -p Result -p ExecMainCode -p ExecMainStatus \
+        --no-pager >&3 2>&3 || true
+    journalctl -b -u cosmopod-persist.service --no-pager -o short-monotonic \
+        >&3 2>&3 || true
+    command -v ssh-keygen >&3 2>&3 || true
+    ls -ld /data /data/cosmopod /data/cosmopod/ssh >&3 2>&3 || true
+    find /data/cosmopod/ssh -maxdepth 1 -printf '%M %u:%g %f\n' >&3 2>&3 || true
+    emit "COSMOPOD_PERSIST_LOG_END"
+fi
+emit_weston_diagnostics
+# Give agetty time to write its literal login prompt. The listener check below
+# is non-blocking, so it cannot delay the remaining evidence stream.
 sleep 2
-
 root_options=$(mount_options /)
 data_options=$(mount_options /data)
 emit "COSMOPOD_SMOKE mount.root.options=$root_options"
@@ -231,7 +265,7 @@ do
     fi
 done
 
-if ss -H -ltn 2>/dev/null | awk '$4 ~ /:22$/ { found=1 } END { exit !found }'; then
+if sshd_is_listening; then
     pass_check sshd.listener
 else
     fail_check sshd.listener port-22-not-listening
@@ -329,18 +363,6 @@ else
     printf '%s\n' "$failed_units" >&3
     emit "COSMOPOD_FAILED_UNITS_END"
 fi
-
-emit "COSMOPOD_WESTON_LOG_BEGIN"
-systemctl show weston.service \
-    -p ActiveState -p SubState -p Result -p ExecMainCode -p ExecMainStatus \
-    --no-pager >&3 2>&3 || true
-journalctl -b -u weston.service --no-pager -o short-monotonic >&3 2>&3 || true
-if ! systemctl is-active --quiet weston.service; then
-    ls -l /dev/dri >&3 2>&3 || true
-    loginctl >&3 2>&3 || true
-    id cosmopod >&3 2>&3 || true
-fi
-emit "COSMOPOD_WESTON_LOG_END"
 
 if [ "$failures" -eq 0 ]; then
     result=PASS

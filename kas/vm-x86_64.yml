@@ -17,4 +17,5 @@ local_conf_header:
     WKS_FILE:pn-cosmopod-image = "cosmopod-vm.wks"
     IMAGE_INSTALL:append:pn-cosmopod-image = " cosmopod-vm-config"
     LABELS_LIVE:pn-cosmopod-image = "boot"
+    APPEND:append:pn-cosmopod-image = " console=ttyS0,115200 console=tty0"
     QB_MEM = "-m 4096"

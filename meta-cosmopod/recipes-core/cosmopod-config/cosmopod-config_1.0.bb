@@ -58,6 +58,13 @@ Requires=cosmopod-persist.service
 After=cosmopod-persist.service
 EOF
 
+    install -d ${D}${sysconfdir}/systemd/system/sshdgenkeys.service.d
+    cat > ${D}${sysconfdir}/systemd/system/sshdgenkeys.service.d/cosmopod.conf <<'EOF'
+[Unit]
+After=data.mount cosmopod-vm-data.service
+Before=cosmopod-persist.service
+EOF
+
     install -d ${D}${sysconfdir}/systemd/system/weston.service.d
     cat > ${D}${sysconfdir}/systemd/system/weston.service.d/cosmopod.conf <<'EOF'
 [Unit]

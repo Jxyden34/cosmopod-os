@@ -8,6 +8,7 @@ SRC_URI = " \
     file://cosmopod-persist-vm.conf \
     file://cosmopod-vm-remount-condition \
     file://cosmopod-remount-vm.conf \
+    file://cosmopod-seatd.service \
     file://cosmopod-weston-vm.conf \
     file://cosmopod-vm-smoke-condition \
     file://cosmopod-vm-smoke \
@@ -16,10 +17,10 @@ SRC_URI = " \
 
 inherit systemd
 
-SYSTEMD_SERVICE:${PN} = "cosmopod-vm-data.service cosmopod-vm-smoke.service"
+SYSTEMD_SERVICE:${PN} = "cosmopod-seatd.service cosmopod-vm-data.service cosmopod-vm-smoke.service"
 SYSTEMD_AUTO_ENABLE = "enable"
 
-RDEPENDS:${PN} += "util-linux util-linux-blkid util-linux-mount"
+RDEPENDS:${PN} += "seatd util-linux util-linux-blkid util-linux-mount"
 
 do_install() {
     # Live ISO root is read-only, so its tmpfs mount point must exist in the
@@ -32,6 +33,7 @@ do_install() {
     install -m 0755 ${WORKDIR}/cosmopod-vm-smoke ${D}${libexecdir}/
 
     install -d ${D}${systemd_system_unitdir}
+    install -m 0644 ${WORKDIR}/cosmopod-seatd.service ${D}${systemd_system_unitdir}/
     install -m 0644 ${WORKDIR}/cosmopod-vm-data.service ${D}${systemd_system_unitdir}/
     install -m 0644 ${WORKDIR}/cosmopod-vm-smoke.service ${D}${systemd_system_unitdir}/
 
