@@ -3,11 +3,13 @@ set -Eeuo pipefail
 
 version=
 media=all
+channel=auto
 timeout_seconds=240
 
 usage() {
     cat <<'EOF'
-Usage: scripts/smoke-vm.sh [--version VERSION] [--media all|iso|qcow2]
+Usage: scripts/smoke-vm.sh [--version VERSION] [--channel auto|development|release]
+                           [--media all|iso|qcow2]
                            [--timeout SECONDS]
 
 Boot rebuilt Cosmopod VM media in isolated QEMU/TCG instances. A fixed guest
@@ -27,6 +29,7 @@ EOF
 while (($#)); do
     case "$1" in
         --version) version=${2:?missing version}; shift ;;
+        --channel) channel=${2:?missing channel}; shift ;;
         --media) media=${2:?missing media}; shift ;;
         --timeout) timeout_seconds=${2:?missing timeout}; shift ;;
         -h|--help) usage; exit 0 ;;
@@ -37,6 +40,10 @@ done
 
 [[ "$media" =~ ^(all|iso|qcow2)$ ]] || {
     echo "Media must be all, iso, or qcow2" >&2
+    exit 2
+}
+[[ "$channel" =~ ^(auto|development|release)$ ]] || {
+    echo "Channel must be auto, development, or release" >&2
     exit 2
 }
 [[ "$timeout_seconds" =~ ^[1-9][0-9]{1,3}$ ]] || {
@@ -54,7 +61,25 @@ fi
     exit 2
 }
 
-artifact_dir="$root/out/$version/vm"
+if [[ "$channel" == auto ]]; then
+    development_dir="$root/out/$version/vm-development"
+    release_dir="$root/out/$version/vm-release"
+    development_exists=0
+    release_exists=0
+    [[ -d "$development_dir" ]] && development_exists=1
+    [[ -d "$release_dir" ]] && release_exists=1
+    if ((development_exists + release_exists != 1)); then
+        echo "Auto channel requires exactly one of: $development_dir or $release_dir" >&2
+        echo "Select --channel development or --channel release" >&2
+        exit 1
+    fi
+    if ((development_exists)); then
+        channel=development
+    else
+        channel=release
+    fi
+fi
+artifact_dir="$root/out/$version/vm-$channel"
 iso="$artifact_dir/Cosmopod-OS-$version-vm-x86_64.iso"
 qcow="$artifact_dir/Cosmopod-OS-$version-vm-x86_64.qcow2"
 smoke_dir="$artifact_dir/smoke"
@@ -653,6 +678,7 @@ rm -f -- "$smoke_dir/SHA256SUMS" "$tap" "$manifest"
         printf 'source_dirty=false\n'
     fi
     printf 'media=%s\n' "$media"
+    printf 'channel=%s\n' "$channel"
     printf 'timeout_seconds=%s\n' "$timeout_seconds"
     printf 'qemu_path=%s\n' "$qemu"
     printf 'qemu_version=%s\n' "$("$qemu" --version | head -n 1)"

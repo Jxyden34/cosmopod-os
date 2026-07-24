@@ -30,8 +30,12 @@ disk.
 After building fresh VM media, run both isolated QEMU checks from Windows:
 
 ```powershell
-.\scripts\smoke-vm.ps1 -Media all -Version 0.1.0
+.\scripts\smoke-vm.ps1 -Media all -Channel development -Version 0.23.0
 ```
+
+Use `-Channel release` for release output. `-Channel auto` works only when
+exactly one channel directory exists, preventing accidental testing of stale
+media when both builds are present.
 
 The test uses TCG with `-cpu max`, a loopback-only VNC display, restricted
 user-mode networking, one temporary loopback-only SSH forward, and a temporary
@@ -51,7 +55,8 @@ the guest's persistent host keys; it does not claim user authentication. The
 second QCOW2 boot must recover both a `/data` sentinel and the exact same two
 SSH host-key fingerprints. QMP also records a dimension-checked, non-uniform
 PPM screen image. Raw/normalized serial, QEMU, Weston, SSH, screen, TAP, and
-checksum evidence is written below `out/<version>/vm/smoke/`.
+checksum evidence is written below
+`out/<version>/vm-<channel>/smoke/`.
 
 Current 0.1.0 artifacts predate this reporter. Rebuild them before running this
 command; a timeout against the older media is expected and is not a pass.

@@ -265,6 +265,9 @@ def check_vm_image_scoping() -> None:
     if 'APPEND:append:pn-cosmopod-image = " console=ttyS0,115200 console=tty0"' not in vm_kas:
         fail("VM ISO must expose kernel and smoke diagnostics on ttyS0")
     for host_control in (
+        "--channel",
+        'artifact_dir="$root/out/$version/vm-$channel"',
+        "Auto channel requires exactly one of:",
         "-cpu max",
         "-smbios",
         "-drive",
@@ -382,6 +385,12 @@ def check_release_provenance() -> None:
         "Release directory does not match the approved unsigned Pi file set",
         "KAS overlay does not reproduce from recorded build inputs",
         "spdx_bundle_sha256=",
+        "cve_database_evidence_sha256=",
+        "format=cosmopod-cve-gate-v3",
+        "--database-evidence",
+        "--license-manifest",
+        "--verification-at",
+        'out/$version/$board-release',
     ):
         if marker not in signer:
             fail(f"offline signing evidence gate missing: {marker}")
@@ -398,10 +407,18 @@ def check_release_provenance() -> None:
         "SHA256SUMS.sig",
         "SPDX archive contains no SPDX JSON document",
         "database_fresh=true",
+        "coverage_complete=true",
+        "format=cosmopod-cve-gate-v3",
+        "--database-evidence",
+        "--license-manifest",
+        "--verification-at",
+        'out/$version/$board-release',
         'validate "$signed" -k "$public"',
     ):
         if marker not in validator:
             fail(f"artifact security evidence validation missing: {marker}")
+    if "cosmopod-cve-gate-v2" in signer or "cosmopod-cve-gate-v2" in validator:
+        fail("release signer or validator still accepts obsolete CVE gate v2 evidence")
 
 
 def check_release_security_evidence() -> None:

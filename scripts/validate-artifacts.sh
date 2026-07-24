@@ -17,7 +17,7 @@ root=$(cd -- "$script_dir/.." && pwd -P)
 # shellcheck source=release-common.sh
 source "$script_dir/release-common.sh"
 version=${2:-$(<"$root/VERSION")}
-out_dir="$root/out/$version/$board"
+out_dir="$root/out/$version/$board-release"
 work_dir=${COSMOPOD_BUILD_ROOT:-"$HOME/.cache/cosmopod-os"}/work-$board
 temp_files=()
 
@@ -91,7 +91,7 @@ manifest_value() {
 validate_manifest() {
     local expected_machine expected_device expected_kas commit tree content manifest_key actual_key
     local input_checks server_url expected_inputs actual_inputs
-    local spdx_bundle license_archive cve_report cve_gate cve_gate_as_of
+    local spdx_bundle license_archive cve_report cve_gate cve_database_evidence cve_gate_as_of
     local cve_gate_checked_at cve_database_sha256 cve_database_mtime_utc
     local cve_database_age_seconds cve_database_max_age_seconds
     local kas_overlay kas_overlay_sha256 bb_number_threads parallel_make_jobs
@@ -144,6 +144,7 @@ validate_manifest() {
     license_archive=$(manifest_value license_archive)
     cve_report=$(manifest_value cve_report)
     cve_gate=$(manifest_value cve_gate)
+    cve_database_evidence=$(manifest_value cve_database_evidence)
     cve_gate_as_of=$(manifest_value cve_gate_as_of)
     cve_gate_checked_at=$(manifest_value cve_gate_checked_at)
     cve_database_sha256=$(manifest_value cve_database_sha256)
@@ -154,6 +155,7 @@ validate_manifest() {
        "$license_archive" == "Cosmopod-OS-$version-$board-licenses.tar.xz" &&
        "$cve_report" == "Cosmopod-OS-$version-$board-cve.json" &&
        "$cve_gate" == "Cosmopod-OS-$version-$board-cve-gate.txt" &&
+       "$cve_database_evidence" == "Cosmopod-OS-$version-$board-cve-database.txt" &&
        "$cve_gate_as_of" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ &&
        "$cve_gate_checked_at" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ &&
        "$cve_database_sha256" =~ ^[0-9a-f]{64}$ &&
@@ -199,14 +201,14 @@ validate_manifest() {
 }
 
 validate_security_evidence() {
-    local spdx_bundle license_archive cve_report cve_gate cve_gate_as_of
+    local spdx_bundle license_archive cve_report cve_gate cve_database_evidence cve_gate_as_of
     local cve_gate_checked_at cve_database_sha256 cve_database_mtime_utc
     local cve_database_age_seconds cve_database_max_age_seconds
     local kas_overlay kas_overlay_sha256 bb_number_threads parallel_make_jobs
     local mender_server_url device_type evidence_name evidence_path replay
     local expected_entries actual_entries expected_overlay_text
     local signed_artifact signed_record signed_checksum signed_index_signature signed_count
-    local entry spdx_entries license_entries normalized_license_entries required_license_entry
+    local entry spdx_entries license_entries normalized_license_entries required_license_entry license_manifest
     for tool in awk cat cmp find grep mktemp openssl python3 sha256sum sort tar xz zstd; do
         require "$tool"
     done
@@ -214,6 +216,7 @@ validate_security_evidence() {
     license_archive=$(manifest_value license_archive)
     cve_report=$(manifest_value cve_report)
     cve_gate=$(manifest_value cve_gate)
+    cve_database_evidence=$(manifest_value cve_database_evidence)
     cve_gate_as_of=$(manifest_value cve_gate_as_of)
     cve_gate_checked_at=$(manifest_value cve_gate_checked_at)
     cve_database_sha256=$(manifest_value cve_database_sha256)
@@ -234,6 +237,7 @@ validate_security_evidence() {
             "Cosmopod-OS-$version-vm-x86_64.iso.xz" \
             "Cosmopod-OS-$version-vm-x86_64.qcow2" \
             "$spdx_bundle" "$license_archive" "$cve_report" "$cve_gate" \
+            "$cve_database_evidence" \
             "$kas_overlay" BUILD-MANIFEST.txt SHA256SUMS | sort)
     else
         signed_artifact="Cosmopod-OS-$version-$board.mender"
@@ -254,6 +258,7 @@ validate_security_evidence() {
             "Cosmopod-OS-$version-$board.img.xz" \
             "Cosmopod-OS-$version-$board-unsigned.mender" \
             "$spdx_bundle" "$license_archive" "$cve_report" "$cve_gate" \
+            "$cve_database_evidence" \
             "$kas_overlay" BUILD-MANIFEST.txt SHA256SUMS | sort)
         if [[ "$signed_count" -eq 4 ]]; then
             expected_entries=$(printf '%s\n' "$expected_entries" \
@@ -280,7 +285,8 @@ validate_security_evidence() {
             "$out_dir/SHA256SUMS" >/dev/null
     fi
 
-    for evidence_name in "$spdx_bundle" "$license_archive" "$cve_report" "$cve_gate" "$kas_overlay"; do
+    for evidence_name in "$spdx_bundle" "$license_archive" "$cve_report" \
+        "$cve_gate" "$cve_database_evidence" "$kas_overlay"; do
         evidence_path="$out_dir/$evidence_name"
         [[ -f "$evidence_path" && -s "$evidence_path" && ! -L "$evidence_path" ]] || {
             echo "Required release security evidence is missing, empty, or symlinked: $evidence_name" >&2
@@ -327,7 +333,9 @@ EOF
     validate_archive_paths "$license_entries" "License"
     normalized_license_entries=$(mktemp \
         "${TMPDIR:-/tmp}/cosmopod-license-normalized.XXXXXX")
-    temp_files+=("$normalized_license_entries")
+    license_manifest=$(mktemp \
+        "${TMPDIR:-/tmp}/cosmopod-license-manifest.XXXXXX")
+    temp_files+=("$normalized_license_entries" "$license_manifest")
     sed 's|^\./||' "$license_entries" > "$normalized_license_entries"
     for required_license_entry in \
         image_license.manifest license.manifest package.manifest; do
@@ -337,14 +345,24 @@ EOF
             exit 1
         }
     done
-    [[ $(grep -Fxc 'format=cosmopod-cve-gate-v2' "$out_dir/$cve_gate") -eq 1 &&
+    tar -xJOf "$out_dir/$license_archive" ./license.manifest > "$license_manifest"
+    [[ -s "$license_manifest" ]] || {
+        echo "Extracted license manifest is empty" >&2
+        exit 1
+    }
+    [[ $(grep -Fxc 'format=cosmopod-cve-gate-v3' "$out_dir/$cve_gate") -eq 1 &&
        $(grep -Fxc "as_of=$cve_gate_as_of" "$out_dir/$cve_gate") -eq 1 &&
-       $(grep -Fxc "checked_at=$cve_gate_checked_at" "$out_dir/$cve_gate") -eq 1 &&
+       $(grep -Fxc "evaluated_at=$cve_gate_checked_at" "$out_dir/$cve_gate") -eq 1 &&
+       $(grep -Fxc "report_sha256=$(sha256sum "$out_dir/$cve_report" | awk '{print $1}')" "$out_dir/$cve_gate") -eq 1 &&
+       $(grep -Fxc "waivers_sha256=$(sha256sum "$root/security/cve-waivers.json" | awk '{print $1}')" "$out_dir/$cve_gate") -eq 1 &&
+       $(grep -Fxc "license_manifest_sha256=$(sha256sum "$license_manifest" | awk '{print $1}')" "$out_dir/$cve_gate") -eq 1 &&
+       $(grep -Fxc "database_evidence_sha256=$(sha256sum "$out_dir/$cve_database_evidence" | awk '{print $1}')" "$out_dir/$cve_gate") -eq 1 &&
        $(grep -Fxc "database_sha256=$cve_database_sha256" "$out_dir/$cve_gate") -eq 1 &&
        $(grep -Fxc "database_mtime_utc=$cve_database_mtime_utc" "$out_dir/$cve_gate") -eq 1 &&
        $(grep -Fxc "database_age_seconds=$cve_database_age_seconds" "$out_dir/$cve_gate") -eq 1 &&
        $(grep -Fxc "database_max_age_seconds=$cve_database_max_age_seconds" "$out_dir/$cve_gate") -eq 1 &&
        $(grep -Fxc 'database_fresh=true' "$out_dir/$cve_gate") -eq 1 &&
+       $(grep -Fxc 'coverage_complete=true' "$out_dir/$cve_gate") -eq 1 &&
        $(grep -Fxc 'decision=PASS' "$out_dir/$cve_gate") -eq 1 ]] || {
         echo "Recorded CVE gate evidence is invalid or did not pass" >&2
         exit 1
@@ -355,11 +373,10 @@ EOF
     python3 "$root/scripts/check-cve-report.py" \
         --report "$out_dir/$cve_report" \
         --waivers "$root/security/cve-waivers.json" \
+        --license-manifest "$license_manifest" \
+        --database-evidence "$out_dir/$cve_database_evidence" \
+        --verification-at "$cve_gate_checked_at" \
         --as-of "$cve_gate_as_of" \
-        --database-sha256 "$cve_database_sha256" \
-        --database-mtime-utc "$cve_database_mtime_utc" \
-        --checked-at "$cve_gate_checked_at" \
-        --max-database-age-seconds "$cve_database_max_age_seconds" \
         --output "$replay" >/dev/null
     cmp -s -- "$out_dir/$cve_gate" "$replay" || {
         echo "Recorded CVE gate evidence does not reproduce from trusted inputs" >&2
@@ -442,6 +459,7 @@ validate_pi() {
         grep -Fqx "license_archive_sha256=$(sha256sum "$(manifest_value license_archive)" | awk '{print $1}')" "$signed_record"
         grep -Fqx "cve_report_sha256=$(sha256sum "$(manifest_value cve_report)" | awk '{print $1}')" "$signed_record"
         grep -Fqx "cve_gate_sha256=$(sha256sum "$(manifest_value cve_gate)" | awk '{print $1}')" "$signed_record"
+        grep -Fqx "cve_database_evidence_sha256=$(sha256sum "$(manifest_value cve_database_evidence)" | awk '{print $1}')" "$signed_record"
         grep -Fqx 'unsigned_rejected=true' "$signed_record"
         grep -Fqx 'wrong_key_rejected=true' "$signed_record"
         grep -Fqx 'release_index_authenticated=true' "$signed_record"

@@ -40,8 +40,8 @@ input_pattern='^Cosmopod-OS-([0-9A-Za-z][0-9A-Za-z._+-]{0,63})-(pi4|pi5)-unsigne
 version=${BASH_REMATCH[1]}
 board=${BASH_REMATCH[2]}
 source_release_dir=$(dirname -- "$input")
-expected_input="$root/out/$version/$board/$input_name"
-[[ "$input" == "$expected_input" && "$source_release_dir" == "$root/out/$version/$board" ]] || {
+expected_input="$root/out/$version/$board-release/$input_name"
+[[ "$input" == "$expected_input" && "$source_release_dir" == "$root/out/$version/$board-release" ]] || {
     echo "Unsigned artifact must be under the trusted checkout: $expected_input" >&2
     exit 1
 }
@@ -68,6 +68,7 @@ spdx_bundle="Cosmopod-OS-$version-$board-spdx.tar.zst"
 license_archive="Cosmopod-OS-$version-$board-licenses.tar.xz"
 cve_report="Cosmopod-OS-$version-$board-cve.json"
 cve_gate="Cosmopod-OS-$version-$board-cve-gate.txt"
+cve_database_evidence="Cosmopod-OS-$version-$board-cve-database.txt"
 kas_overlay=BUILD-KAS-OVERLAY.yml
 unsigned_entries=$(printf '%s\n' \
     "Cosmopod-OS-$version-$board.img.xz" \
@@ -76,6 +77,7 @@ unsigned_entries=$(printf '%s\n' \
     "$license_archive" \
     "$cve_report" \
     "$cve_gate" \
+    "$cve_database_evidence" \
     "$kas_overlay" \
     BUILD-MANIFEST.txt \
     SHA256SUMS | sort)
@@ -342,6 +344,7 @@ manifest_spdx_bundle=$(manifest_value spdx_bundle)
 manifest_license_archive=$(manifest_value license_archive)
 manifest_cve_report=$(manifest_value cve_report)
 manifest_cve_gate=$(manifest_value cve_gate)
+manifest_cve_database_evidence=$(manifest_value cve_database_evidence)
 cve_gate_as_of=$(manifest_value cve_gate_as_of)
 cve_gate_checked_at=$(manifest_value cve_gate_checked_at)
 cve_database_sha256=$(manifest_value cve_database_sha256)
@@ -370,6 +373,7 @@ kas_version=$(manifest_value kas_version)
    "$manifest_license_archive" == "$license_archive" &&
    "$manifest_cve_report" == "$cve_report" &&
    "$manifest_cve_gate" == "$cve_gate" &&
+   "$manifest_cve_database_evidence" == "$cve_database_evidence" &&
    "$cve_gate_as_of" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ &&
    "$cve_gate_checked_at" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ &&
    "$cve_database_sha256" =~ ^[0-9a-f]{64}$ &&
@@ -460,7 +464,7 @@ printf '%s\n' "$input_checks" | (
 )
 
 for evidence_name in "$spdx_bundle" "$license_archive" "$cve_report" \
-    "$cve_gate" "$kas_overlay"; do
+    "$cve_gate" "$cve_database_evidence" "$kas_overlay"; do
     evidence_path="$release_temp_dir/$evidence_name"
     [[ -f "$evidence_path" && -s "$evidence_path" && ! -L "$evidence_path" ]] || {
         echo "Required release security evidence is missing, empty, or symlinked: $evidence_name" >&2
@@ -490,6 +494,13 @@ for required_license_entry in \
     }
 done
 
+tar -xJOf "$release_temp_dir/$license_archive" ./license.manifest \
+    > "$temp_dir/license.manifest"
+[[ -s "$temp_dir/license.manifest" ]] || {
+    echo "Extracted license manifest is empty" >&2
+    exit 1
+}
+
 [[ "$(sha256sum "$release_temp_dir/$kas_overlay" | awk '{print $1}')" == "$kas_overlay_sha256" ]] || {
     echo "KAS overlay does not match its build-manifest digest" >&2
     exit 1
@@ -514,14 +525,19 @@ EOF
     echo "KAS overlay does not reproduce from recorded build inputs" >&2
     exit 1
 }
-[[ $(grep -Fxc 'format=cosmopod-cve-gate-v2' "$release_temp_dir/$cve_gate") -eq 1 &&
+[[ $(grep -Fxc 'format=cosmopod-cve-gate-v3' "$release_temp_dir/$cve_gate") -eq 1 &&
    $(grep -Fxc "as_of=$cve_gate_as_of" "$release_temp_dir/$cve_gate") -eq 1 &&
-   $(grep -Fxc "checked_at=$cve_gate_checked_at" "$release_temp_dir/$cve_gate") -eq 1 &&
+   $(grep -Fxc "evaluated_at=$cve_gate_checked_at" "$release_temp_dir/$cve_gate") -eq 1 &&
+   $(grep -Fxc "report_sha256=$(sha256sum "$release_temp_dir/$cve_report" | awk '{print $1}')" "$release_temp_dir/$cve_gate") -eq 1 &&
+   $(grep -Fxc "waivers_sha256=$(sha256sum "$root/security/cve-waivers.json" | awk '{print $1}')" "$release_temp_dir/$cve_gate") -eq 1 &&
+   $(grep -Fxc "license_manifest_sha256=$(sha256sum "$temp_dir/license.manifest" | awk '{print $1}')" "$release_temp_dir/$cve_gate") -eq 1 &&
+   $(grep -Fxc "database_evidence_sha256=$(sha256sum "$release_temp_dir/$cve_database_evidence" | awk '{print $1}')" "$release_temp_dir/$cve_gate") -eq 1 &&
    $(grep -Fxc "database_sha256=$cve_database_sha256" "$release_temp_dir/$cve_gate") -eq 1 &&
    $(grep -Fxc "database_mtime_utc=$cve_database_mtime_utc" "$release_temp_dir/$cve_gate") -eq 1 &&
    $(grep -Fxc "database_age_seconds=$cve_database_age_seconds" "$release_temp_dir/$cve_gate") -eq 1 &&
    $(grep -Fxc "database_max_age_seconds=$cve_database_max_age_seconds" "$release_temp_dir/$cve_gate") -eq 1 &&
    $(grep -Fxc 'database_fresh=true' "$release_temp_dir/$cve_gate") -eq 1 &&
+   $(grep -Fxc 'coverage_complete=true' "$release_temp_dir/$cve_gate") -eq 1 &&
    $(grep -Fxc 'decision=PASS' "$release_temp_dir/$cve_gate") -eq 1 ]] || {
     echo "Recorded CVE gate evidence is invalid or did not pass" >&2
     exit 1
@@ -529,11 +545,10 @@ EOF
 python3 "$root/scripts/check-cve-report.py" \
     --report "$release_temp_dir/$cve_report" \
     --waivers "$root/security/cve-waivers.json" \
+    --license-manifest "$temp_dir/license.manifest" \
+    --database-evidence "$release_temp_dir/$cve_database_evidence" \
+    --verification-at "$cve_gate_checked_at" \
     --as-of "$cve_gate_as_of" \
-    --database-sha256 "$cve_database_sha256" \
-    --database-mtime-utc "$cve_database_mtime_utc" \
-    --checked-at "$cve_gate_checked_at" \
-    --max-database-age-seconds "$cve_database_max_age_seconds" \
     --output "$temp_dir/cve-gate-replay.txt" >/dev/null
 cmp -s -- "$release_temp_dir/$cve_gate" "$temp_dir/cve-gate-replay.txt" || {
     echo "Recorded CVE gate evidence does not reproduce from trusted inputs" >&2
@@ -605,6 +620,8 @@ signed_sha256=$(sha256sum "$snapshot_output" | awk '{print $1}')
         "$(sha256sum "$release_temp_dir/$cve_report" | awk '{print $1}')"
     printf 'cve_gate_sha256=%s\n' \
         "$(sha256sum "$release_temp_dir/$cve_gate" | awk '{print $1}')"
+    printf 'cve_database_evidence_sha256=%s\n' \
+        "$(sha256sum "$release_temp_dir/$cve_database_evidence" | awk '{print $1}')"
     printf 'cve_gate_as_of=%s\n' "$cve_gate_as_of"
     printf 'cve_gate_checked_at=%s\n' "$cve_gate_checked_at"
     printf 'cve_database_sha256=%s\n' "$cve_database_sha256"
