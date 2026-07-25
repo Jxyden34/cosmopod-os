@@ -305,11 +305,11 @@ def check_board_package_scoping() -> None:
     for board in ("raspberrypi4.yml", "raspberrypi5.yml"):
         text = (ROOT / "kas" / board).read_text(encoding="utf-8")
         if not re.search(
-            r'^\s+IMAGE_INSTALL:append:pn-cosmopod-image\s*=\s*" kernel-devicetree"$',
+            r'^\s+IMAGE_INSTALL:append:pn-cosmopod-image\s*=\s*" kernel-devicetree cosmopod-pi-config"$',
             text,
             re.MULTILINE,
         ):
-            fail(f"{board} must install its device trees in the product image")
+            fail(f"{board} must install device trees and Pi hardware policy")
 
 
 def check_release_provenance() -> None:
@@ -574,6 +574,36 @@ def check_product_features() -> None:
         ROOT
         / "meta-cosmopod/recipes-core/cosmopod-config/cosmopod-config_1.0.bb"
     ).read_text(encoding="utf-8")
+    health = (
+        ROOT
+        / "meta-cosmopod/recipes-core/cosmopod-config/files/"
+        "ArtifactCommit_Enter_50_cosmopod-health"
+    ).read_text(encoding="utf-8")
+    pi_recipe = (
+        ROOT
+        / "meta-cosmopod/recipes-core/cosmopod-pi-config/"
+        "cosmopod-pi-config_1.0.bb"
+    ).read_text(encoding="utf-8")
+    watchdog = (
+        ROOT
+        / "meta-cosmopod/recipes-core/cosmopod-pi-config/files/"
+        "60-cosmopod-watchdog.conf"
+    ).read_text(encoding="utf-8")
+
+    for marker in (
+        "/usr/share/cosmopod/pi-hardware",
+        "RuntimeWatchdogUSec",
+        "Raspberry Pi hardware watchdog device is absent",
+        "systemd hardware watchdog is not active",
+    ):
+        if marker not in health:
+            fail(f"OTA health gate lacks Pi watchdog check: {marker}")
+    for marker in ("RuntimeWatchdogSec=15s", "RebootWatchdogSec=15s"):
+        if marker not in watchdog:
+            fail(f"Raspberry Pi systemd watchdog policy missing: {marker}")
+    for marker in ("60-cosmopod-watchdog.conf", "pi-hardware"):
+        if marker not in pi_recipe:
+            fail(f"Raspberry Pi hardware policy recipe missing: {marker}")
 
     if "After=data.mount local-fs.target sshdgenkeys.service" not in persist_unit:
         fail("persistent setup must run after OpenSSH host-key generation")

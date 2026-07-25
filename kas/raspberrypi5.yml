@@ -15,7 +15,7 @@ local_conf_header:
   cosmopod-rpi5: |
     INHERIT += "mender-full"
     MENDER_DEVICE_TYPE = "cosmopod-rpi5"
-    IMAGE_INSTALL:append:pn-cosmopod-image = " kernel-devicetree"
+    IMAGE_INSTALL:append:pn-cosmopod-image = " kernel-devicetree cosmopod-pi-config"
     KERNEL_IMAGETYPE_UBOOT ?= "Image"
     KERNEL_BOOTCMD ?= "booti"
     UBOOT_MACHINE = "rpi_arm64_config"

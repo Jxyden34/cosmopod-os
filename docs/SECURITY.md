@@ -100,7 +100,7 @@ append-only release ledger before production publication.
 
 - Raspberry Pi signed boot/TPM-backed measured boot design
 - LUKS2 data partition with TPM or operator recovery key
-- hardware watchdog wired into failed health recovery
+- destructive forced-hang and hardware-watchdog reset qualification
 - read-only rootfs and explicit writable overlays
 - device identity key in TPM/secure element
 - per-device mTLS and automated certificate rotation

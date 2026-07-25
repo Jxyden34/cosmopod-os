@@ -13,7 +13,7 @@ artifact was built, signed, and validated locally, but predates the current
 source-provenance manifest and must not be promoted. Current GitHub CI performs
 source/unit checks; CI does not build, sign, upload, or deploy releases.
 Production operator has not yet been exercised against a live backend, and
-production backend is not yet deployed. Hardware watchdog,
+production backend is not yet deployed. Hardware-watchdog forced-hang proof,
 data-schema migration/rollback, full UI self-test, retained diagnostics, and
 automated release evidence below are production requirements/backlog, not
 claims about version 0.1.0.
@@ -198,7 +198,7 @@ The implemented script observes continuous health for 120 seconds, not one succe
 - the compositor exposes its Wayland socket.
 
 Running-slot/version verification, failed-unit policy, UI render self-test,
-watchdog proof, schema compatibility, disk thresholds, and filesystem counters
+forced-reset watchdog proof, schema compatibility, disk thresholds, and filesystem counters
 remain production backlog and must be added before those properties are used as
 promotion claims.
 
@@ -222,7 +222,13 @@ framework; releases requiring persistent-schema changes are therefore blocked.
 
 ### Hung-kernel protection
 
-An `ArtifactCommit_Enter` script cannot run if the new kernel never reaches userspace. Hardware watchdog and explicit forced-hang qualification remain backlog. A production release must enable and test them before claiming automatic recovery from pre-userspace hangs.
+Pi images configure systemd PID 1 to pet the built-in BCM2835 watchdog with a
+15-second deadline during runtime and reboot. The Mender health gate rejects a
+Pi boot when watchdog device or systemd activation is missing. An
+`ArtifactCommit_Enter` script still cannot run if new kernel never reaches
+userspace; hardware should reset it, but explicit forced-hang and reset
+qualification remains backlog. Do not claim automatic pre-userspace recovery
+until both Pi models pass that destructive test.
 
 ## Backend upload and deployment
 
