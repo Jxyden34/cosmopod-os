@@ -520,7 +520,9 @@ else
         echo "Yocto buildtools environment setup failed" >&2
         exit 1
     fi
-    hosttools_dir="$work_dir/build/tmp/hosttools"
+    # TMPDIR is shared deliberately across board workdirs, so BitBake creates
+    # its cached host-tool links here rather than below work-$board/build.
+    hosttools_dir="$tmp_dir/hosttools"
     if [[ -n "$gnu_coreutils_bin" ]]; then
         export PATH="$gnu_coreutils_bin:$PATH"
         hash -r
