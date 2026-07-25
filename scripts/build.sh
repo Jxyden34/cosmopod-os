@@ -13,6 +13,7 @@ board=pi4
 version=
 action=build
 engine=auto
+requested_channel=auto
 allow_dirty=false
 replace_output=false
 mender_server_url=https://kys.dpdns.org
@@ -23,6 +24,7 @@ build_started_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 usage() {
     cat <<'EOF'
 Usage: scripts/build.sh [--build|--checkout-only] [--engine auto|native|container]
+                        [--channel auto|development|release]
                         [--allow-dirty] [--replace-output]
                         [--mender-server-url https://HOST]
                         --board pi4|pi5|vm --version VERSION
@@ -38,6 +40,7 @@ while [[ $# -gt 0 ]]; do
         --build) action=build ;;
         --checkout-only) action=checkout ;;
         --engine) engine=${2:?missing engine}; shift ;;
+        --channel) requested_channel=${2:?missing channel}; shift ;;
         --board) board=${2:?missing board}; shift ;;
         --version) version=${2:?missing version}; shift ;;
         --allow-dirty) allow_dirty=true ;;
@@ -52,6 +55,10 @@ done
 [[ "$board" =~ ^(pi4|pi5|vm)$ ]] || { echo "Board must be pi4, pi5, or vm" >&2; exit 2; }
 [[ "$engine" =~ ^(auto|native|container)$ ]] || {
     echo "Engine must be auto, native, or container" >&2
+    exit 2
+}
+[[ "$requested_channel" =~ ^(auto|development|release)$ ]] || {
+    echo "Channel must be auto, development, or release" >&2
     exit 2
 }
 [[ "$bb_threads" =~ ^[1-9][0-9]?$ ]] || {
@@ -279,10 +286,22 @@ mkdir -p -- "$out_root"
     exit 1
 }
 export_parent="$out_root/$version"
-output_channel=release
-if [[ "$source_dirty" == true ]]; then
-    output_channel=development
-fi
+case "$requested_channel" in
+    auto)
+        output_channel=release
+        [[ "$source_dirty" != true ]] || output_channel=development
+        ;;
+    development)
+        output_channel=development
+        ;;
+    release)
+        [[ "$source_dirty" == false ]] || {
+            echo "Release channel requires a clean source tree" >&2
+            exit 1
+        }
+        output_channel=release
+        ;;
+esac
 export_dir="$export_parent/$board-$output_channel"
 [[ "$(realpath -m -- "$export_parent")" == "$export_parent" ]] && \
     [[ "$(realpath -m -- "$export_dir")" == "$export_dir" ]] || {
@@ -755,6 +774,7 @@ verify_export_invariants
     printf 'device_type=%s\n' "$device_type"
     printf 'artifact_name=cosmopod-os-%s-%s\n' "$version" "$board"
     printf 'output_channel=%s\n' "$output_channel"
+    printf 'requested_channel=%s\n' "$requested_channel"
     printf 'release_qualified=%s\n' "$release_qualified"
     printf 'mender_server_url=%s\n' "$mender_server_url"
     printf 'source_commit=%s\n' "$source_commit"

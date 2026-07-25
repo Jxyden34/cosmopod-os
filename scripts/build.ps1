@@ -8,6 +8,9 @@ param(
     [ValidateSet('auto', 'native', 'container')]
     [string]$Engine = 'auto',
 
+    [ValidateSet('auto', 'development', 'release')]
+    [string]$Channel = 'auto',
+
     [switch]$CheckoutOnly,
 
     [switch]$AllowDirty,
@@ -36,6 +39,7 @@ $mode = if ($CheckoutOnly) { '--checkout-only' } else { '--build' }
 $arguments = @(
     $mode,
     '--engine', $Engine,
+    '--channel', $Channel,
     '--board', $Board,
     '--version', $Version,
     '--mender-server-url', $MenderServerUrl
@@ -43,7 +47,7 @@ $arguments = @(
 if ($AllowDirty) { $arguments += '--allow-dirty' }
 if ($ReplaceOutput) { $arguments += '--replace-output' }
 
-Write-Host "Cosmopod OS: board=$Board version=$Version engine=$Engine mender=$MenderServerUrl"
+Write-Host "Cosmopod OS: board=$Board version=$Version engine=$Engine channel=$Channel mender=$MenderServerUrl"
 & wsl.exe -d Ubuntu -- bash "$wslProject/scripts/build.sh" @arguments
 if ($LASTEXITCODE -ne 0) {
     throw "Cosmopod OS build failed with exit code $LASTEXITCODE"

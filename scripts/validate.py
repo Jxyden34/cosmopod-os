@@ -351,6 +351,8 @@ def check_release_provenance() -> None:
         'evidence_image_name="cosmopod-image-$machine.rootfs"',
         'license_source="$tmp_dir/deploy/licenses/${machine//-/_}/$evidence_image_name"',
         "output_channel=development",
+        "requested_channel=",
+        "Release channel requires a clean source tree",
         "release_qualified=false",
         "Development media is unqualified",
     )
