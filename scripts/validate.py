@@ -420,6 +420,26 @@ def check_release_provenance() -> None:
     if "cosmopod-cve-gate-v2" in signer or "cosmopod-cve-gate-v2" in validator:
         fail("release signer or validator still accepts obsolete CVE gate v2 evidence")
 
+    operator = (ROOT / "backend/production/release.sh").read_text(encoding="utf-8")
+    for marker in (
+        "--approve-artifact-sha256",
+        "release_index_authenticated=true",
+        "sha256sum --check --strict SHA256SUMS",
+        '"$artifact_tool" validate "$artifact" -k "$public_key"',
+        "--approve-ring",
+        "--previous-record",
+        "ring-3-stable requires --approve-stable",
+        "format=cosmopod-backend-operation-v1",
+        'proto = "=https"',
+        "token file must be owned by current user",
+        "/api/management/v1/deployments/artifacts",
+        "/api/management/v1/deployments/deployments/group/",
+    ):
+        if marker not in operator:
+            fail(f"production release operator safety control missing: {marker}")
+    if "--location" in operator or "MENDER_PAT=" in operator:
+        fail("production release operator may expose credentials across redirects or environment")
+
 
 def check_release_security_evidence() -> None:
     common = (ROOT / "kas/common.yml").read_text(encoding="utf-8")

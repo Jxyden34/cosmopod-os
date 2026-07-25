@@ -32,18 +32,54 @@ jobs:
             backend/scripts/*.sh \
             backend/production/preflight.sh \
             backend/production/deploy.sh \
-            backend/production/postflight.sh
+            backend/production/postflight.sh \
+            backend/production/release.sh
       - name: Check production deployment safety contract
         run: |
           test -x backend/production/preflight.sh
           test -x backend/production/deploy.sh
           test -x backend/production/postflight.sh
+          test -x backend/production/release.sh
           bash backend/production/preflight.sh --help >/dev/null
           bash backend/production/deploy.sh --help >/dev/null
           bash backend/production/postflight.sh --help >/dev/null
+          bash backend/production/release.sh --help >/dev/null
           grep -Fq -- '--atomic' backend/production/deploy.sh
           grep -Fq -- 'x-men-requestid:' backend/production/postflight.sh
           grep -Fq -- 'cosmopod-mender-nats' backend/production/values.yaml
+          grep -Fq -- '--approve-artifact-sha256' backend/production/release.sh
+          grep -Fq -- 'ring-3-stable requires --approve-stable' backend/production/release.sh
+          grep -Fq -- 'proto = "=https"' backend/production/release.sh
+          if grep -Fq -- '--location' backend/production/release.sh; then
+            echo 'release operator must not forward bearer credentials across redirects' >&2
+            exit 1
+          fi
+          dummy_sha="$(printf 'a%.0s' {1..64})"
+          if bash backend/production/release.sh \
+            --action deploy \
+            --version 0.24.0 \
+            --board pi4 \
+            --approve-artifact-sha256 "${dummy_sha}" \
+            --ring ring-0-canary \
+            --approve-ring ring-0-canary \
+            --deployment-name cosmopod-invalid-ring \
+            --upload-record missing >/dev/null 2>&1; then
+            echo 'release operator accepted invalid ring sequence' >&2
+            exit 1
+          fi
+          if bash backend/production/release.sh \
+            --action deploy \
+            --version 0.24.0 \
+            --board pi5 \
+            --approve-artifact-sha256 "${dummy_sha}" \
+            --ring ring-3-stable \
+            --approve-ring ring-3-stable \
+            --deployment-name cosmopod-stable-no-approval \
+            --upload-record missing \
+            --previous-record missing >/dev/null 2>&1; then
+            echo 'release operator accepted stable deployment without approval' >&2
+            exit 1
+          fi
           if bash backend/production/deploy.sh \
             --context production \
             --hostname kys.dpdns.org \

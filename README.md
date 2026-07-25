@@ -92,10 +92,10 @@ release to selected Pi devices or groups. The configured endpoint is
 # bundle copied to the offline signer.
 BUILD_INDEX_SHA256=<approved-sha256-of-SHA256SUMS>
 UNSIGNED_SHA256=<approved-sha256-of-unsigned-mender>
-scripts/sign-release.sh --approve-server-url https://updates.example.org \
+scripts/sign-release.sh --approve-server-url https://kys.dpdns.org \
   --approve-build-index-sha256 "$BUILD_INDEX_SHA256" \
   --approve-unsigned-sha256 "$UNSIGNED_SHA256" \
-  out/0.1.0/pi4/Cosmopod-OS-0.1.0-pi4-unsigned.mender
+  out/0.24.0/pi4-release/Cosmopod-OS-0.24.0-pi4-unsigned.mender
 
 # Local evaluation backend; not production configuration.
 backend/scripts/bootstrap-evaluation.sh

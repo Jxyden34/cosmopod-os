@@ -30,27 +30,57 @@ mender-cli login --server https://kys.dpdns.org --username operator@example.com
 mender-cli artifacts --server https://kys.dpdns.org upload cosmopod-release.mender
 ```
 
-For CI, inject a short-lived session token or Personal Access Token from its
-secret manager. Never commit it, echo it, add it to `.env`, or hard-code it in
-a pipeline. Standard upload is used here; direct upload is an Enterprise-only
-feature and is disabled in the Open Source production template.
+For a guarded production upload, place a short-lived Personal Access Token in
+a mode-0600 file supplied by the secret manager. First run a local-only plan:
+
+```bash
+backend/production/release.sh \
+  --action upload \
+  --version 0.24.0 \
+  --board pi4 \
+  --approve-artifact-sha256 <independently-approved-signed-sha256>
+```
+
+After reviewing every verified identity, repeat with `--apply --token-file
+/secure/mender-release-manager.token`. The script uses the standard Open Source
+multipart API, not Enterprise direct upload. It verifies the authenticated
+release index, Artifact signature, signing record, internal name, device type,
+server URL, and approved digest before reading the token. Successful upload
+creates a non-secret receipt under `backend/.runtime/release-records/`.
 
 ## 3. Deploy safely
 
-Preferred first deployment: Mender UI to a small static `canary` group. Verify
-health, reboot, Wayland session, SSH access, application state, and automatic
-rollback before expanding.
+Create the four static groups named `ring-0-lab`, `ring-1-canary`,
+`ring-2-beta`, and `ring-3-stable`. First deployment example:
+
+```bash
+backend/production/release.sh \
+  --action deploy \
+  --version 0.24.0 \
+  --board pi4 \
+  --approve-artifact-sha256 <independently-approved-signed-sha256> \
+  --ring ring-0-lab \
+  --approve-ring ring-0-lab \
+  --deployment-name cosmopod-0.24.0-pi4-ring-0 \
+  --upload-record backend/.runtime/release-records/upload-....record
+```
+
+Review plan, then repeat with `--apply --token-file ...`. A higher ring requires
+`--previous-record` from exact preceding ring. Stable additionally requires
+`--approve-stable`. Receipt proves API accepted operation; it does not prove
+devices succeeded. Inspect deployment results and acceptance evidence before
+promoting. Archive receipts in immutable release ledger.
 
 Automation uses this management API shape:
 
 ```http
-POST /api/management/v1/deployments/deployments/group/canary
+POST /api/management/v1/deployments/deployments/group/ring-0-lab
 Authorization: Bearer <injected-at-runtime>
 Content-Type: application/json
 
 {
-  "name": "cosmopod-2026.07.15-canary",
-  "artifact_name": "cosmopod-2026.07.15",
+  "name": "cosmopod-0.24.0-pi4-ring-0",
+  "artifact_name": "cosmopod-os-0.24.0-pi4",
   "phases": [
     {"batch_size": 1},
     {"batch_size": 5},
@@ -60,15 +90,14 @@ Content-Type: application/json
 }
 ```
 
-Use a unique deployment name. Treat deployment group and Artifact name as
-validated input. Inject the bearer token at runtime and redact HTTP headers
-from logs. Monitor deployment status after every phase; stop rollout on boot,
-health-check, connectivity, or rollback failures.
+Use unique deployment name. Token never appears in curl arguments. Monitor
+deployment status after every ring; stop rollout on boot, health-check,
+connectivity, or rollback failures.
 
-Promote the exact same signed Artifact from canary to staging to production.
-Do not rebuild between rings. A fleet rollback is a new deployment of the last
-known-good Artifact; client-side A/B health checks remain the first recovery
-line.
+Promote exact signed Artifact through `ring-0-lab`, `ring-1-canary`,
+`ring-2-beta`, then `ring-3-stable`. Do not rebuild between rings. Fleet
+rollback is new deployment of last known-good Artifact; client-side A/B health
+checks remain first recovery line.
 
 Official references:
 

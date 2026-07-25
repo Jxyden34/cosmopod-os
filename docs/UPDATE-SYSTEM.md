@@ -7,11 +7,13 @@ Cosmopod OS uses [Mender](https://docs.mender.io/overview/introduction) for mana
 Implemented in this repository: A/B image integration, compiled-in RSA-3072
 artifact verification key, a 300-second health deadline requiring 120 seconds
 of continuous stability, persistent home/network/SSH/Mender state, separate Pi
-device types, signing helper, and backend templates. Version 0.1.0's Pi 4
+device types, signing helper, guarded backend upload/deployment operator, and
+backend templates. Version 0.1.0's Pi 4
 artifact was built, signed, and validated locally, but predates the current
 source-provenance manifest and must not be promoted. Current GitHub CI performs
-source/unit checks; it does not yet build, sign, upload, or deploy releases.
-The production backend is not yet deployed. Hardware watchdog,
+source/unit checks; CI does not build, sign, upload, or deploy releases.
+Production operator has not yet been exercised against a live backend, and
+production backend is not yet deployed. Hardware watchdog,
 data-schema migration/rollback, full UI self-test, retained diagnostics, and
 automated release evidence below are production requirements/backlog, not
 claims about version 0.1.0.
@@ -141,14 +143,14 @@ build record, not be copied from the untrusted transfer bundle. After review:
 
 ```sh
 scripts/sign-release.sh \
-  --approve-server-url https://updates.example.org \
+  --approve-server-url https://kys.dpdns.org \
   --approve-build-index-sha256 <approved-sha256-of-SHA256SUMS> \
   --approve-unsigned-sha256 <approved-sha256-of-unsigned-mender> \
-  out/1.4.0+20260715.3/pi4/Cosmopod-OS-1.4.0+20260715.3-pi4-unsigned.mender
+  out/1.4.0+20260715.3/pi4-release/Cosmopod-OS-1.4.0+20260715.3-pi4-unsigned.mender
 
 openssl dgst -sha256 -verify artifact-verify-key.pem \
-  -signature out/1.4.0+20260715.3/pi4/SHA256SUMS.sig \
-  out/1.4.0+20260715.3/pi4/SHA256SUMS
+  -signature out/1.4.0+20260715.3/pi4-release/SHA256SUMS.sig \
+  out/1.4.0+20260715.3/pi4-release/SHA256SUMS
 ```
 
 Repeat for Pi 5. Upload only the signed `.mender` to Mender; publish its

@@ -73,9 +73,10 @@ explicit operator action.
 
 ## Production and releases
 
-Read [production/README.md](production/README.md) before adapting the pinned
-Helm values. Read [RELEASES.md](RELEASES.md) for signed Artifact upload,
-canary deployment, promotion, monitoring, and rollback guidance.
+Read [production/README.md](production/README.md) before adapting pinned Helm
+values. [production/release.sh](production/release.sh) verifies and uploads a
+signed Artifact, then creates separately approved ring deployments. Read
+[RELEASES.md](RELEASES.md) for receipts, promotion, monitoring, and rollback.
 
 Version pins:
 
