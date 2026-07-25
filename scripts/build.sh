@@ -730,9 +730,9 @@ if [[ ( "$cve_gate_decision" == PASS && "$cve_gate_exit" -ne 0 ) ||
     exit 1
 fi
 release_qualified=false
-if [[ "$cve_gate_decision" == PASS && "$source_dirty" == false ]]; then
+if [[ "$cve_gate_decision" == PASS && "$output_channel" == release ]]; then
     release_qualified=true
-elif [[ "$cve_gate_decision" == FAIL && "$source_dirty" != true ]]; then
+elif [[ "$cve_gate_decision" == FAIL && "$output_channel" == release ]]; then
     echo "Release build blocked by $cve_gate_denied denied CVE findings" >&2
     exit 1
 elif [[ "$cve_gate_decision" == FAIL ]]; then

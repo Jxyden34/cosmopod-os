@@ -353,6 +353,7 @@ def check_release_provenance() -> None:
         "output_channel=development",
         "requested_channel=",
         "Release channel requires a clean source tree",
+        '"$cve_gate_decision" == FAIL && "$output_channel" == release',
         "release_qualified=false",
         "Development media is unqualified",
     )

@@ -30,7 +30,7 @@ disk.
 After building fresh VM media, run both isolated QEMU checks from Windows:
 
 ```powershell
-.\scripts\smoke-vm.ps1 -Media all -Channel development -Version 0.25.0
+.\scripts\smoke-vm.ps1 -Media all -Channel development -Version 0.26.0
 ```
 
 Use `-Channel release` for release output. `-Channel auto` works only when
