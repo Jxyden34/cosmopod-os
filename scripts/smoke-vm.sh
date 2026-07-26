@@ -387,7 +387,8 @@ PY
 }
 
 scan_ssh_host() {
-    local port=$1 output=$2 temporary="$output.tmp"
+    local port=$1 output=$2 temporary
+    temporary="$output.tmp"
     if ssh-keyscan -T 1 -p "$port" -t ed25519,rsa 127.0.0.1 \
         > "$temporary" 2>/dev/null && [[ -s "$temporary" ]]
     then

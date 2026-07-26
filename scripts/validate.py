@@ -266,6 +266,8 @@ def check_vm_image_scoping() -> None:
         fail("VM smoke host must normalize prefixed evidence markers")
     if smoke_host.count('-serial "file:$') < 4 or "evidence_log" not in smoke_host:
         fail("VM smoke host must capture ttyS0 console and dedicated ttyS1 evidence")
+    if 'local port=$1 output=$2 temporary\n    temporary="$output.tmp"' not in smoke_host:
+        fail("VM smoke host must initialize the SSH scan temporary path after output")
     vm_kas = (ROOT / "kas/vm-x86_64.yml").read_text(encoding="utf-8")
     if 'APPEND:append:pn-cosmopod-image = " console=ttyS0,115200 console=tty0"' not in vm_kas:
         fail("VM ISO must expose kernel and smoke diagnostics on ttyS0")

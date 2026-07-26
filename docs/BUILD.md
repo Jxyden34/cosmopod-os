@@ -115,7 +115,7 @@ as development output. To test clean committed source while a release gate is
 still expected to fail, select development explicitly:
 
 ```powershell
-.\scripts\build.ps1 -Board pi4 -Channel development -Version 0.33.0
+.\scripts\build.ps1 -Board pi4 -Channel development -Version 0.34.0
 ```
 
 `-Channel release` refuses dirty source. Channel choice is recorded in build
@@ -223,15 +223,15 @@ verification keys; do not delete the old pair and rerun this initializer.
 
 ```bash
 # On the trusted builder, send these two values to the approval ledger/channel:
-sha256sum out/0.33.0/pi4-release/SHA256SUMS
-sha256sum out/0.33.0/pi4-release/Cosmopod-OS-0.33.0-pi4-unsigned.mender
+sha256sum out/0.34.0/pi4-release/SHA256SUMS
+sha256sum out/0.34.0/pi4-release/Cosmopod-OS-0.34.0-pi4-unsigned.mender
 
 # On the offline signer, use approved values from that independent channel.
 scripts/sign-release.sh \
   --approve-server-url https://kys.dpdns.org \
   --approve-build-index-sha256 <approved-sha256-of-SHA256SUMS> \
   --approve-unsigned-sha256 <approved-sha256-of-unsigned-mender> \
-  out/0.33.0/pi4-release/Cosmopod-OS-0.33.0-pi4-unsigned.mender
+  out/0.34.0/pi4-release/Cosmopod-OS-0.34.0-pi4-unsigned.mender
 ```
 
 The signer rejects extra files, symlinks, unsafe checksum paths, stale CVE
@@ -243,8 +243,8 @@ sidecar:
 ```bash
 openssl dgst -sha256 -verify \
   meta-cosmopod/recipes-mender/mender/files/artifact-verify-key.pem \
-  -signature out/0.33.0/pi4-release/SHA256SUMS.sig \
-  out/0.33.0/pi4-release/SHA256SUMS
+  -signature out/0.34.0/pi4-release/SHA256SUMS.sig \
+  out/0.34.0/pi4-release/SHA256SUMS
 ```
 
 For production, move signing to an offline machine or supported KMS/HSM. Never
