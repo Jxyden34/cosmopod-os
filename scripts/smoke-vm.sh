@@ -371,9 +371,9 @@ extract_weston_log() {
 }
 
 serial_complete() {
-    local log=$1
-    grep -aq 'COSMOPOD_SMOKE_RESULT=' "$log" 2>/dev/null && \
-        grep -aEq '[[:alnum:]_.-]+ login:' "$log" 2>/dev/null
+    local console_log=$1 evidence_log=$2
+    grep -aq 'COSMOPOD_SMOKE_RESULT=' "$evidence_log" 2>/dev/null && \
+        grep -aEq '[[:alnum:]_.-]+ login:' "$console_log" 2>/dev/null
 }
 
 allocate_loopback_port() {
@@ -403,11 +403,11 @@ ssh_fingerprint_set() {
 }
 
 wait_for_smoke() {
-    local raw_log=$1 screenshot=$2 ssh_port=$3 ssh_scan=$4
+    local console_log=$1 evidence_log=$2 screenshot=$3 ssh_port=$4 ssh_scan=$5
     local deadline=$((SECONDS + timeout_seconds))
     local screenshot_attempted=0 ssh_scanned=0
     while ((SECONDS < deadline)); do
-        if grep -aq 'COSMOPOD_SMOKE_SCREENSHOT_READY' "$raw_log" 2>/dev/null; then
+        if grep -aq 'COSMOPOD_SMOKE_SCREENSHOT_READY' "$evidence_log" 2>/dev/null; then
             if ((screenshot_attempted == 0)) && \
                 qmp_screendump "$active_qmp" "$screenshot"
             then
@@ -417,7 +417,7 @@ wait_for_smoke() {
                 ssh_scanned=1
             fi
         fi
-        serial_complete "$raw_log" && return 0
+        serial_complete "$console_log" "$evidence_log" && return 0
         kill -0 "$active_pid" 2>/dev/null || return 1
         sleep 1
     done
@@ -514,6 +514,8 @@ check_result() {
 
 run_iso() {
     local raw_log="$runtime_dir/iso.serial.raw"
+    local evidence_log="$runtime_dir/iso.evidence.raw"
+    local combined_log="$runtime_dir/iso.combined.raw"
     local qemu_log="$runtime_dir/iso.qemu.log"
     local screenshot="$runtime_dir/iso.screen.ppm"
     local ssh_scan="$runtime_dir/iso.ssh-hostkeys"
@@ -522,6 +524,7 @@ run_iso() {
     printf 'iso_ssh_host_port=%s\n' "$ssh_port" >> "$manifest"
     active_qmp="$runtime_dir/iso.qmp"
     : > "$raw_log"
+    : > "$evidence_log"
     : > "$qemu_log"
     "$qemu" \
         -name cosmopod-smoke-iso \
@@ -533,7 +536,7 @@ run_iso() {
         -vga none -device virtio-vga \
         -display vnc=127.0.0.1:0,to=99 \
         -nic "user,model=virtio-net-pci,restrict=on,hostfwd=tcp:127.0.0.1:$ssh_port-:22" \
-        -serial "file:$raw_log" -monitor none \
+        -serial "file:$raw_log" -serial "file:$evidence_log" -monitor none \
         -qmp "unix:$active_qmp,server=on,wait=off" \
         > /dev/null 2> "$qemu_log" &
     active_pid=$!
@@ -553,10 +556,11 @@ run_iso() {
         return 1
     fi
 
-    wait_for_smoke "$raw_log" "$screenshot" "$ssh_port" "$ssh_scan" || true
+    wait_for_smoke "$raw_log" "$evidence_log" "$screenshot" "$ssh_port" "$ssh_scan" || true
     local finish_status=0 result_status=0
     finish_qemu || finish_status=$?
-    check_result iso "$raw_log" "$qemu_log" "$screenshot" "$ssh_scan" || result_status=$?
+    cat -- "$raw_log" "$evidence_log" > "$combined_log"
+    check_result iso "$combined_log" "$qemu_log" "$screenshot" "$ssh_scan" || result_status=$?
     ((finish_status == 0 && result_status == 0))
 }
 
@@ -564,6 +568,8 @@ run_qcow2_boot() {
     local boot=$1 overlay=$2 code=$3 code_format=$4 vars_copy=$5 vars_format=$6
     local name="qcow2.boot$boot"
     local raw_log="$runtime_dir/$name.serial.raw"
+    local evidence_log="$runtime_dir/$name.evidence.raw"
+    local combined_log="$runtime_dir/$name.combined.raw"
     local qemu_log="$runtime_dir/$name.qemu.log"
     local screenshot="$runtime_dir/$name.screen.ppm"
     local ssh_scan="$runtime_dir/$name.ssh-hostkeys"
@@ -572,6 +578,7 @@ run_qcow2_boot() {
     printf 'qcow2_boot%s_ssh_host_port=%s\n' "$boot" "$ssh_port" >> "$manifest"
     active_qmp="$runtime_dir/$name.qmp"
     : > "$raw_log"
+    : > "$evidence_log"
     : > "$qemu_log"
 
     "$qemu" \
@@ -587,15 +594,16 @@ run_qcow2_boot() {
         -vga none -device virtio-vga \
         -display vnc=127.0.0.1:0,to=99 \
         -nic "user,model=virtio-net-pci,restrict=on,hostfwd=tcp:127.0.0.1:$ssh_port-:22" \
-        -serial "file:$raw_log" -monitor none \
+        -serial "file:$raw_log" -serial "file:$evidence_log" -monitor none \
         -qmp "unix:$active_qmp,server=on,wait=off" \
         > /dev/null 2> "$qemu_log" &
     active_pid=$!
 
-    wait_for_smoke "$raw_log" "$screenshot" "$ssh_port" "$ssh_scan" || true
+    wait_for_smoke "$raw_log" "$evidence_log" "$screenshot" "$ssh_port" "$ssh_scan" || true
     local finish_status=0 result_status=0
     finish_qemu || finish_status=$?
-    check_result "$name" "$raw_log" "$qemu_log" "$screenshot" "$ssh_scan" || result_status=$?
+    cat -- "$raw_log" "$evidence_log" > "$combined_log"
+    check_result "$name" "$combined_log" "$qemu_log" "$screenshot" "$ssh_scan" || result_status=$?
     ((finish_status == 0 && result_status == 0))
 }
 

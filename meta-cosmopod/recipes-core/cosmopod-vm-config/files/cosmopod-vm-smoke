@@ -8,24 +8,16 @@ case "$serial" in
     *) exit 0 ;;
 esac
 
-serial_device=/dev/ttyS0
+serial_device=/dev/ttyS1
 [ -c "$serial_device" ] || exit 1
 exec 3>"$serial_device"
-kmsg_device=/dev/kmsg
 
 failures=0
 
 emit() {
-    # serial-getty starts while this reporter is running and can reconfigure
-    # ttyS0. Keep the direct serial stream for readable diagnostics, and mirror
-    # every machine-readable marker through the kernel console so evidence
-    # cannot disappear during that handover.
-    printf '%s\n' "$*" >&3 || true
-    if [ -w "$kmsg_device" ]; then
-        # Priority 3 bypasses quiet-boot console filtering. This path only runs
-        # under the fixed smoke-test SMBIOS serial, never on a normal VM.
-        printf '<3>cosmopod-vm-smoke: %s\n' "$*" > "$kmsg_device" 2>/dev/null || true
-    fi
+    # ttyS1 is a dedicated host-captured evidence channel. ttyS0 remains the
+    # normal human serial console and may be reconfigured by serial-getty.
+    printf '%s\n' "$*" >&3
 }
 
 pass_check() {
