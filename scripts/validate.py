@@ -259,6 +259,7 @@ def check_vm_image_scoping() -> None:
         "COSMOPOD_PERSIST_LOG_BEGIN",
         "COSMOPOD_SMOKE_RESULT=",
         "kmsg_device=/dev/kmsg",
+        "<3>cosmopod-vm-smoke: %s",
         "cosmopod-vm-smoke: %s",
     ):
         if evidence not in smoke_reporter:

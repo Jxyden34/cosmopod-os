@@ -57,7 +57,7 @@ jobs:
           dummy_sha="$(printf 'a%.0s' {1..64})"
           if bash backend/production/release.sh \
             --action deploy \
-            --version 0.31.0 \
+            --version 0.32.0 \
             --board pi4 \
             --approve-artifact-sha256 "${dummy_sha}" \
             --ring ring-0-canary \
@@ -69,7 +69,7 @@ jobs:
           fi
           if bash backend/production/release.sh \
             --action deploy \
-            --version 0.31.0 \
+            --version 0.32.0 \
             --board pi5 \
             --approve-artifact-sha256 "${dummy_sha}" \
             --ring ring-3-stable \

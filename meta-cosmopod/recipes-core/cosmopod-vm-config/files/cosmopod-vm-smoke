@@ -22,7 +22,9 @@ emit() {
     # cannot disappear during that handover.
     printf '%s\n' "$*" >&3 || true
     if [ -w "$kmsg_device" ]; then
-        printf '<6>cosmopod-vm-smoke: %s\n' "$*" > "$kmsg_device" 2>/dev/null || true
+        # Priority 3 bypasses quiet-boot console filtering. This path only runs
+        # under the fixed smoke-test SMBIOS serial, never on a normal VM.
+        printf '<3>cosmopod-vm-smoke: %s\n' "$*" > "$kmsg_device" 2>/dev/null || true
     fi
 }
 

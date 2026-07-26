@@ -95,7 +95,7 @@ UNSIGNED_SHA256=<approved-sha256-of-unsigned-mender>
 scripts/sign-release.sh --approve-server-url https://kys.dpdns.org \
   --approve-build-index-sha256 "$BUILD_INDEX_SHA256" \
   --approve-unsigned-sha256 "$UNSIGNED_SHA256" \
-  out/0.31.0/pi4-release/Cosmopod-OS-0.31.0-pi4-unsigned.mender
+  out/0.32.0/pi4-release/Cosmopod-OS-0.32.0-pi4-unsigned.mender
 
 # Local evaluation backend; not production configuration.
 backend/scripts/bootstrap-evaluation.sh
