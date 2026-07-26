@@ -152,7 +152,7 @@ class CveGateTests(unittest.TestCase):
         incomplete = CVE_GATE.CoverageEvidence(
             "d" * 64, frozenset({"openssl", "busybox"})
         )
-        with self.assertRaisesRegex(CVE_GATE.InputError, "coverage differs"):
+        with self.assertRaisesRegex(CVE_GATE.InputError, "missing licensed recipes"):
             CVE_GATE.render_evidence(
                 "a" * 64,
                 "b" * 64,
@@ -164,6 +164,24 @@ class CveGateTests(unittest.TestCase):
                 database(),
                 incomplete,
             )
+
+    def test_report_may_cover_additional_recipes(self) -> None:
+        recipes, findings = CVE_GATE.parse_report(report("Patched", "8.1"))
+        evidence, passed = CVE_GATE.render_evidence(
+            "a" * 64,
+            "b" * 64,
+            date(2026, 7, 16),
+            recipes | {"run-postinsts"},
+            findings,
+            set(),
+            0,
+            database(),
+            coverage(),
+        )
+        self.assertTrue(passed)
+        self.assertIn("coverage_missing=0", evidence)
+        self.assertIn("coverage_extra=1", evidence)
+        self.assertIn("coverage_complete=true", evidence)
 
     def test_license_coverage_normalizes_metadata_recipes(self) -> None:
         path = TEST_TEMP_ROOT / f"license-{uuid4().hex}.manifest"

@@ -718,8 +718,14 @@ if python3 "$source_root/scripts/check-cve-report.py" \
 else
     cve_gate_exit=$?
 fi
+if (( cve_gate_exit > 1 )); then
+    echo "CVE gate input validation failed" >&2
+    exit "$cve_gate_exit"
+fi
 cve_gate_as_of=$(sed -n 's/^as_of=//p' "$staging_dir/$cve_gate_export")
 cve_database_age_seconds=$(sed -n 's/^database_age_seconds=//p' \
+    "$staging_dir/$cve_gate_export")
+cve_gate_coverage_extra=$(sed -n 's/^coverage_extra=//p' \
     "$staging_dir/$cve_gate_export")
 cve_gate_decision=$(sed -n 's/^decision=//p' "$staging_dir/$cve_gate_export")
 cve_gate_denied=$(sed -n 's/^denied=//p' "$staging_dir/$cve_gate_export")
@@ -733,6 +739,7 @@ cve_gate_denied=$(sed -n 's/^denied=//p' "$staging_dir/$cve_gate_export")
    $(grep -Fxc "database_max_age_seconds=$CVE_DATABASE_MAX_AGE_SECONDS" "$staging_dir/$cve_gate_export") -eq 1 &&
    $(grep -Fxc 'database_fresh=true' "$staging_dir/$cve_gate_export") -eq 1 &&
    $(grep -Fxc 'coverage_complete=true' "$staging_dir/$cve_gate_export") -eq 1 &&
+   "$cve_gate_coverage_extra" =~ ^[0-9]+$ &&
    $(grep -c '^decision=' "$staging_dir/$cve_gate_export") -eq 1 &&
    "$cve_gate_decision" =~ ^(PASS|FAIL)$ &&
    "$cve_gate_denied" =~ ^[0-9]+$ ]] || {
