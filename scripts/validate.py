@@ -355,6 +355,8 @@ def check_release_provenance() -> None:
         "Release channel requires a clean source tree",
         '"$cve_gate_decision" == FAIL && "$output_channel" == release',
         'hosttools_dir="$tmp_dir/hosttools"',
+        '"$tmp_dir/log/cve/cve-summary-index.txt"',
+        'CVE accumulator path is unexpectedly a directory',
         "release_qualified=false",
         "Development media is unqualified",
     )

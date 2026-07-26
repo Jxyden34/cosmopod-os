@@ -574,6 +574,19 @@ if [[ "$action" == checkout ]]; then
 fi
 
 verify_overlay
+# Yocto's CVE handlers append one path per nostamp do_cve_check task. An
+# interrupted BitBake process cannot emit BuildCompleted, so its accumulator
+# files survive and the next build reports every repeated path as a duplicate
+# package. The global build lock makes this cleanup safe for the shared TMPDIR.
+for cve_accumulator in \
+    "$tmp_dir/cve_check" \
+    "$tmp_dir/log/cve/cve-summary-index.txt"; do
+    if [[ -d "$cve_accumulator" && ! -L "$cve_accumulator" ]]; then
+        echo "CVE accumulator path is unexpectedly a directory: $cve_accumulator" >&2
+        exit 1
+    fi
+    rm -f -- "$cve_accumulator"
+done
 "${kas_runner[@]}" build "$kas_file:$overlay"
 verify_overlay
 
