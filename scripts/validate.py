@@ -212,6 +212,12 @@ def check_vm_image_scoping() -> None:
     ).read_text(encoding="utf-8")
     if "SRC_URI:append:genericx86-64" not in kernel_append:
         fail("Hyper-V kernel fragment must be scoped to the x86 VM")
+    for kernel_pin in (
+        'SRCREV_machine:genericx86-64 = "70af2998be31b72a111de67966b7816b3d54d472"',
+        'LINUX_VERSION:genericx86-64 = "6.6.127"',
+    ):
+        if kernel_pin not in kernel_append:
+            fail(f"VM maintained-kernel pin missing: {kernel_pin}")
     for kernel_control in (
         "CONFIG_HYPERVISOR_GUEST=y",
         "CONFIG_HYPERV_NET=y",
