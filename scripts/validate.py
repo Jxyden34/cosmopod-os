@@ -491,10 +491,6 @@ def check_release_security_evidence() -> None:
 
 def check_host_compatibility_patches() -> None:
     recipes = {
-        "Mesa": (
-            "meta-cosmopod/recipes-graphics/mesa/mesa_%.bbappend",
-            "files/0001-c11-threads-fix-build-on-c23.patch",
-        ),
         "virglrenderer": (
             "meta-cosmopod/recipes-graphics/virglrenderer/virglrenderer_%.bbappend",
             "files/0001-c11-use-glibc-once-flag.patch",
@@ -509,6 +505,9 @@ def check_host_compatibility_patches() -> None:
             fail(f"{name} host compatibility patch must be native-only")
         if "__once_flag_defined" not in patch.read_text(encoding="utf-8"):
             fail(f"{name} compatibility patch does not guard system once_flag")
+    obsolete_mesa = ROOT / "meta-cosmopod/recipes-graphics/mesa/mesa_%.bbappend"
+    if obsolete_mesa.exists():
+        fail("local Mesa host patch duplicates pinned Yocto 5.0.18 metadata")
     pseudo = (
         ROOT / "meta-cosmopod/recipes-devtools/pseudo/pseudo_%.bbappend"
     ).read_text(encoding="utf-8")
