@@ -266,7 +266,8 @@ qmp_hmp() {
 }
 
 wait_until_stopped() {
-    local pid=$1 seconds=$2 deadline=$((SECONDS + seconds))
+    local pid=$1 seconds=$2 deadline
+    deadline=$((SECONDS + seconds))
     while kill -0 "$pid" 2>/dev/null && ((SECONDS < deadline)); do
         sleep 1
     done

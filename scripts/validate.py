@@ -279,6 +279,8 @@ def check_vm_image_scoping() -> None:
         "sendkey down",
         "sendkey ret",
         "qmp_screendump",
+        "local pid=$1 seconds=$2 deadline",
+        "deadline=$((SECONDS + seconds))",
         "validate_ppm",
         "ssh-keyscan",
         "detect_image_format",
