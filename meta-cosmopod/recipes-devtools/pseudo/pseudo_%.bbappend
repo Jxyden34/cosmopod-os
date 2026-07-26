@@ -1,4 +1,4 @@
-# Yocto 5.0.17 pins pseudo before its openat2 support. Pseudo 1.9.8 provides
+# Yocto 5.0.18 pins pseudo before its openat2 support. Pseudo 1.9.8 provides
 # the stable symlink and permission fixes, but the later full openat2 wrapper
 # loses pipeline file descriptors on empty-path probes from glibc 2.43 tools.
 # Route failed canonicalization through the wrapper, then return ENOSYS only

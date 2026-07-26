@@ -13,26 +13,26 @@ repos:
 
   openembedded-core:
     url: https://git.openembedded.org/openembedded-core.git
-    commit: 54077a2d6b1a492178c3ba2e62ab4a02b7a48bcc
+    commit: ece80784b493c8b7493478fa2ba0dc1d6d80aa79
     layers:
       meta:
 
   bitbake:
     url: https://git.openembedded.org/bitbake.git
-    commit: 918cda91649c7591c7a7b857f137cce3e83edbac
+    commit: 82abbfcdbda949851a03bb2cb2049ea689564ad6
     layers:
       bitbake: disabled
 
   meta-yocto:
     url: https://git.yoctoproject.org/meta-yocto.git
-    commit: 097ee32b47234d79f2ff223ac81e740cedd75005
+    commit: ca5a51aadaf651881d640688dc3e1e123aa30bf6
     layers:
       meta-poky:
       meta-yocto-bsp:
 
   meta-openembedded:
     url: https://git.openembedded.org/meta-openembedded.git
-    commit: ec0469748be4159fb83fb0fa0148d786484c88cf
+    commit: 7eb94107580092f79ff1b639a87762fe6f96aa12
     layers:
       meta-oe:
       meta-python:
@@ -42,7 +42,7 @@ repos:
 
   meta-raspberrypi:
     url: https://github.com/agherzan/meta-raspberrypi.git
-    commit: 2c646d29912dcc873469a57b1c207e1549c5094d
+    commit: 6ca1f75017cc5d5acdb8bb05634c4bc01fa049fd
 
   meta-mender:
     url: https://github.com/mendersoftware/meta-mender.git
@@ -82,7 +82,7 @@ local_conf_header:
     MENDER_BOOT_PART_SIZE_MB = "256"
     MENDER_DATA_PART_SIZE_MB = "1024"
 
-    COSMOPOD_VERSION ?= "0.34.0-dev"
+    COSMOPOD_VERSION ?= "0.35.0-dev"
     MENDER_ARTIFACT_NAME ?= "cosmopod-os-${COSMOPOD_VERSION}-${MACHINE}"
     MENDER_SERVER_URL ?= "https://kys.dpdns.org"
     MENDER_TENANT_TOKEN ?= ""
