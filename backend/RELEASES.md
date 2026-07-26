@@ -36,7 +36,7 @@ a mode-0600 file supplied by the secret manager. First run a local-only plan:
 ```bash
 backend/production/release.sh \
   --action upload \
-  --version 0.35.0 \
+  --version 0.36.0 \
   --board pi4 \
   --approve-artifact-sha256 <independently-approved-signed-sha256>
 ```
@@ -56,12 +56,12 @@ Create the four static groups named `ring-0-lab`, `ring-1-canary`,
 ```bash
 backend/production/release.sh \
   --action deploy \
-  --version 0.35.0 \
+  --version 0.36.0 \
   --board pi4 \
   --approve-artifact-sha256 <independently-approved-signed-sha256> \
   --ring ring-0-lab \
   --approve-ring ring-0-lab \
-  --deployment-name cosmopod-0.35.0-pi4-ring-0 \
+  --deployment-name cosmopod-0.36.0-pi4-ring-0 \
   --upload-record backend/.runtime/release-records/upload-....record
 ```
 
@@ -79,8 +79,8 @@ Authorization: Bearer <injected-at-runtime>
 Content-Type: application/json
 
 {
-  "name": "cosmopod-0.35.0-pi4-ring-0",
-  "artifact_name": "cosmopod-os-0.35.0-pi4",
+  "name": "cosmopod-0.36.0-pi4-ring-0",
+  "artifact_name": "cosmopod-os-0.36.0-pi4",
   "phases": [
     {"batch_size": 1},
     {"batch_size": 5},
