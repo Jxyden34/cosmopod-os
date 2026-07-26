@@ -11,11 +11,19 @@ esac
 serial_device=/dev/ttyS0
 [ -c "$serial_device" ] || exit 1
 exec 3>"$serial_device"
+kmsg_device=/dev/kmsg
 
 failures=0
 
 emit() {
-    printf '%s\n' "$*" >&3
+    # serial-getty starts while this reporter is running and can reconfigure
+    # ttyS0. Keep the direct serial stream for readable diagnostics, and mirror
+    # every machine-readable marker through the kernel console so evidence
+    # cannot disappear during that handover.
+    printf '%s\n' "$*" >&3 || true
+    if [ -w "$kmsg_device" ]; then
+        printf '<6>cosmopod-vm-smoke: %s\n' "$*" > "$kmsg_device" 2>/dev/null || true
+    fi
 }
 
 pass_check() {

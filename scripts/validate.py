@@ -258,9 +258,13 @@ def check_vm_image_scoping() -> None:
         "COSMOPOD_WESTON_LOG_BEGIN",
         "COSMOPOD_PERSIST_LOG_BEGIN",
         "COSMOPOD_SMOKE_RESULT=",
+        "kmsg_device=/dev/kmsg",
+        "cosmopod-vm-smoke: %s",
     ):
         if evidence not in smoke_reporter:
             fail(f"VM smoke reporter does not capture required evidence: {evidence}")
+    if "COSMOPOD_(SMOKE|WESTON_LOG|WAYLAND_INFO|FAILED_UNITS|PERSIST_LOG)" not in smoke_host:
+        fail("VM smoke host must normalize kernel-console evidence markers")
     vm_kas = (ROOT / "kas/vm-x86_64.yml").read_text(encoding="utf-8")
     if 'APPEND:append:pn-cosmopod-image = " console=ttyS0,115200 console=tty0"' not in vm_kas:
         fail("VM ISO must expose kernel and smoke diagnostics on ttyS0")

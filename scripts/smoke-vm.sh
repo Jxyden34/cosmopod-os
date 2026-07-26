@@ -294,7 +294,9 @@ trap 'exit 143' TERM
 
 normalize_serial() {
     local source=$1 destination=$2
-    sed -E $'s/\033\\[[0-9;?]*[ -\\/]*[@-~]//g' "$source" | tr -d '\r' > "$destination"
+    sed -E $'s/\033\\[[0-9;?]*[ -\\/]*[@-~]//g' "$source" | tr -d '\r' | \
+        sed -E 's/^.*(COSMOPOD_(SMOKE|WESTON_LOG|WAYLAND_INFO|FAILED_UNITS|PERSIST_LOG).*)$/\1/' \
+        > "$destination"
 }
 
 validate_ppm() {
