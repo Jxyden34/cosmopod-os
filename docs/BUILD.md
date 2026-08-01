@@ -115,7 +115,7 @@ as development output. To test clean committed source while a release gate is
 still expected to fail, select development explicitly:
 
 ```powershell
-.\scripts\build.ps1 -Board pi4 -Channel development -Version 0.42.0
+.\scripts\build.ps1 -Board pi4 -Channel development -Version 0.43.0
 ```
 
 `-Channel release` refuses dirty source. Channel choice is recorded in build
@@ -223,15 +223,15 @@ verification keys; do not delete the old pair and rerun this initializer.
 
 ```bash
 # On the trusted builder, send these two values to the approval ledger/channel:
-sha256sum out/0.42.0/pi4-release/SHA256SUMS
-sha256sum out/0.42.0/pi4-release/Cosmopod-OS-0.42.0-pi4-unsigned.mender
+sha256sum out/0.43.0/pi4-release/SHA256SUMS
+sha256sum out/0.43.0/pi4-release/Cosmopod-OS-0.43.0-pi4-unsigned.mender
 
 # On the offline signer, use approved values from that independent channel.
 scripts/sign-release.sh \
   --approve-server-url https://kys.dpdns.org \
   --approve-build-index-sha256 <approved-sha256-of-SHA256SUMS> \
   --approve-unsigned-sha256 <approved-sha256-of-unsigned-mender> \
-  out/0.42.0/pi4-release/Cosmopod-OS-0.42.0-pi4-unsigned.mender
+  out/0.43.0/pi4-release/Cosmopod-OS-0.43.0-pi4-unsigned.mender
 ```
 
 The signer rejects extra files, symlinks, unsafe checksum paths, stale CVE
@@ -243,8 +243,8 @@ sidecar:
 ```bash
 openssl dgst -sha256 -verify \
   meta-cosmopod/recipes-mender/mender/files/artifact-verify-key.pem \
-  -signature out/0.42.0/pi4-release/SHA256SUMS.sig \
-  out/0.42.0/pi4-release/SHA256SUMS
+  -signature out/0.43.0/pi4-release/SHA256SUMS.sig \
+  out/0.43.0/pi4-release/SHA256SUMS
 ```
 
 For production, move signing to an offline machine or supported KMS/HSM. Never
@@ -265,34 +265,25 @@ Scarthgap is used as the first hardware baseline because its Mender Raspberry
 Pi integration is established. Qualify a full Yocto LTS migration separately;
 do not mix Wrynose layers into a Scarthgap build.
 
-## Version 0.1.0 validation record
+## Version 0.42.0 validation record
 
-Full native Yocto builds completed for Raspberry Pi 4 and generic x86-64. The
-Pi factory image, signed and unsigned Mender artifacts, VM hybrid ISO, and VM
-QCOW2 disk passed `scripts/validate-artifacts.sh` checks for hashes, container
-formats, expected partition tables/filesystems/labels, Mender metadata and
-device compatibility, and BIOS/UEFI ISO boot files. The generated OS identity
-is `cosmopod` version `0.1.0`. This is historical build evidence: those files
-predate `BUILD-MANIFEST.txt`, later boot fixes, and the VM smoke reporter. The
-current validator intentionally rejects them until fresh media is produced from
-a clean, matching commit.
+Clean native Yocto builds completed for Raspberry Pi 4, Raspberry Pi 5, and
+generic x86-64 at source commit `c8a4c31c341d181497d9429944f19ad833a9872b`.
+All 8,117 VM build tasks succeeded. The VM ISO and QCOW2 passed hash/archive
+checks and isolated QEMU smoke tests for Wayland/Weston, SSH, clean systemd
+state, mounts, and persistence across two QCOW2 boots.
 
-QEMU TCG smoke tests using a Core 2-capable CPU model reached a serial login
-from the BIOS live ISO and the UEFI QCOW2 disk. The QCOW2 root and data
-partitions mounted read-write and swap activated. ISO testing proved its tmpfs
-`/data` fallback, persistent-state setup, NetworkManager, first-boot
-provisioning, and key-only SSH daemon startup. It also found and drove fixes for
-an absent live mount point, unconditional NFSD mount, and expected read-only
-root remount. Weston still failed under the last tested virtio GPU run. That
-historical kernel also had `CONFIG_HYPERVISOR_GUEST` disabled. Current source
-uses Weston's Pixman renderer and builds Hyper-V DRM, input, storage, and
-network support into the x86 kernel; it also includes an opt-in, fixed-function
-guest reporter plus `scripts/smoke-vm.ps1`. Rebuild the VM media and pass both
-ISO and QCOW2 checks before VM qualification.
+Both Pi builds exported `.img.xz` factory media and unsigned Mender v3
+artifacts. Hashes, artifact device compatibility (`cosmopod-rpi4-64` and
+`cosmopod-rpi5`), and the health-commit state script were validated. No real
+Raspberry Pi boot has been claimed.
 
-No real Raspberry Pi boot has been claimed. A full Raspberry Pi 5 build also
-remains outstanding. Treat these artifacts as pre-release media until the
-acceptance work below passes.
+The development artifacts are deliberately unqualified: the fresh CVE gate
+denied 296 VM findings and 263 findings for each Pi target. Production signing,
+backend deployment at `https://kys.dpdns.org`, signed OTA commit/rollback, and
+physical hardware testing remain mandatory. Version 0.43.0 advances official
+security fixes and must be rebuilt for all three targets before its results can
+supersede this record.
 
 ## Hardware acceptance gate
 

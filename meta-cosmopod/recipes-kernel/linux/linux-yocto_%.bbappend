@@ -7,8 +7,8 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 SRC_URI:append:genericx86-64 = " file://cosmopod-hyperv.cfg"
 
 # meta-yocto-bsp pins genericx86-64 to the original 6.6.21 revision even
-# though the Scarthgap core recipe tracks the maintained 6.6.142 revision.
+# though the Scarthgap core recipe tracks the maintained 6.6.144 revision.
 # Keep the generic VM BSP configuration while selecting that official current
 # source revision and its matching version metadata.
-SRCREV_machine:genericx86-64 = "a8a7d078f151a24e01d4501853c88c6b08c9cad9"
-LINUX_VERSION:genericx86-64 = "6.6.142"
+SRCREV_machine:genericx86-64 = "2baf8e92ef6ad38945005adf39342b9efb4509ec"
+LINUX_VERSION:genericx86-64 = "6.6.144"

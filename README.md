@@ -95,7 +95,7 @@ UNSIGNED_SHA256=<approved-sha256-of-unsigned-mender>
 scripts/sign-release.sh --approve-server-url https://kys.dpdns.org \
   --approve-build-index-sha256 "$BUILD_INDEX_SHA256" \
   --approve-unsigned-sha256 "$UNSIGNED_SHA256" \
-  out/0.42.0/pi4-release/Cosmopod-OS-0.42.0-pi4-unsigned.mender
+  out/0.43.0/pi4-release/Cosmopod-OS-0.43.0-pi4-unsigned.mender
 
 # Local evaluation backend; not production configuration.
 backend/scripts/bootstrap-evaluation.sh
@@ -117,22 +117,19 @@ Read [update system](docs/UPDATE-SYSTEM.md) before deploying an update.
 
 ## Current status
 
-Version 0.1.0 completed full Yocto builds for Raspberry Pi 4 and x86-64 VM
-media. The exported Pi `.img.xz`, signed/unsigned Mender artifacts, VM `.iso`,
-and `.qcow2` passed offline checksum, format, partition, boot-file, and artifact
-validation at build time. They predate the current clean-source provenance
-manifest, later boot fixes, and VM reporter, so they remain historical
-pre-release evidence and must be rebuilt from a new clean commit. QEMU smoke
-tests reached a Cosmopod serial login from both VM
-formats; the persistent QCOW2 mounted its root, data, and swap partitions. Live
-ISO testing found and fixed data, NFSD, and read-only-remount failures. The last
-booted ISO iteration still failed to start Weston under the test's virtual GPU;
-the latest built ISO includes console diagnostics. Source now contains a safe,
-non-interactive QEMU smoke reporter for mounts, SSH, DRM, Weston, and Wayland;
-VM media needs rebuilding and must pass it before desktop qualification.
-Raspberry Pi 5 source support is present, but a full Pi 5 build has not
-completed. Real Pi hardware tests and production backend deployment at
-`https://kys.dpdns.org` remain outstanding. See [Build](docs/BUILD.md).
+Version 0.42.0 completed clean Yocto builds for the x86-64 VM, Raspberry Pi 4,
+and Raspberry Pi 5. The VM ISO and QCOW2 both passed isolated QEMU smoke tests
+covering Wayland/Weston, SSH, systemd health, mounts, and QCOW2 persistence.
+Both Pi builds exported factory images and unsigned Mender artifacts that
+passed build-time format, partition, checksum, device-type, and health-script
+validation. Version 0.43.0 advances the maintained Scarthgap security metadata,
+VM kernel, and supporting layers; it requires a fresh three-target build.
+
+All media remains development-only. The latest fresh CVE gate still blocks
+release promotion, and production signing, backend OTA/rollback, and physical
+Pi 4/Pi 5 qualification require controlled infrastructure and hardware. Do not
+promote any build to 1.0.0 until every gate in [versioning](docs/VERSIONING.md)
+passes. See [Build](docs/BUILD.md) for the detailed record.
 
 ## License
 
