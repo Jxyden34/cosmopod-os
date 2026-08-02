@@ -470,6 +470,9 @@ def check_release_provenance() -> None:
 
 def check_release_security_evidence() -> None:
     common = (ROOT / "kas/common.yml").read_text(encoding="utf-8")
+    image = (
+        ROOT / "meta-cosmopod/recipes-core/images/cosmopod-image.bb"
+    ).read_text(encoding="utf-8")
     gate = (ROOT / "scripts/check-cve-report.py").read_text(encoding="utf-8")
     keygen = (ROOT / "scripts/generate-signing-key.sh").read_text(encoding="utf-8")
     waivers = (ROOT / "security/cve-waivers.json").read_text(encoding="utf-8")
@@ -482,6 +485,11 @@ def check_release_security_evidence() -> None:
     ):
         if marker not in common:
             fail(f"Yocto release evidence control missing: {marker}")
+    stable_spdx_marker = (
+        'sbom_path = d.expand("${DEPLOY_DIR_IMAGE}/${IMAGE_LINK_NAME}.spdx.json")'
+    )
+    if stable_spdx_marker not in image:
+        fail("image CVE scan must consume the stable SPDX deploy link")
     for marker in (
         "BLOCKING_SCORE = 7.0",
         'status in ("Unpatched", "Unknown")',
