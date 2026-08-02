@@ -651,7 +651,19 @@ fi
 
 spdx_source="$deploy_dir/$evidence_image_name.spdx.json"
 cve_source="$deploy_dir/$evidence_image_name.sbom-cve-check.yocto.json"
-license_source="$tmp_dir/deploy/licenses/${machine//-/_}/$evidence_image_name"
+image_manifest_link="$deploy_dir/$evidence_image_name.manifest"
+[[ -s "$image_manifest_link" ]] || {
+    echo "Image package manifest missing or empty: $image_manifest_link" >&2
+    exit 1
+}
+image_manifest=$(readlink -f -- "$image_manifest_link")
+deploy_dir_resolved=$(readlink -f -- "$deploy_dir")
+[[ -f "$image_manifest" && "${image_manifest%/*}" == "$deploy_dir_resolved" ]] || {
+    echo "Image package manifest resolves outside the deploy directory: $image_manifest_link" >&2
+    exit 1
+}
+license_source="$tmp_dir/deploy/licenses/${machine//-/_}/${image_manifest##*/}"
+license_source=${license_source%.manifest}
 spdx_export="Cosmopod-OS-$version-$board-spdx.tar.zst"
 license_export="Cosmopod-OS-$version-$board-licenses.tar.xz"
 cve_export="Cosmopod-OS-$version-$board-cve.json"
