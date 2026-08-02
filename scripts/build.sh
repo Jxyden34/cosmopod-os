@@ -662,8 +662,25 @@ deploy_dir_resolved=$(readlink -f -- "$deploy_dir")
     echo "Image package manifest resolves outside the deploy directory: $image_manifest_link" >&2
     exit 1
 }
-license_source="$tmp_dir/deploy/licenses/${machine//-/_}/${image_manifest##*/}"
-license_source=${license_source%.manifest}
+license_deploy_root="$tmp_dir/deploy/licenses/${machine//-/_}"
+license_deploy_root_resolved=$(readlink -f -- "$license_deploy_root")
+package_license_source="$license_deploy_root/${image_manifest##*/}"
+package_license_source=${package_license_source%.manifest}
+image_license_link="$license_deploy_root/$evidence_image_name"
+image_license_source=$(readlink -f -- "$image_license_link")
+for license_directory in "$package_license_source" "$image_license_source"; do
+    [[ -d "$license_directory" &&
+       "${license_directory%/*}" == "$license_deploy_root_resolved" ]] || {
+        echo "Image license evidence resolves outside the license deploy directory: $license_directory" >&2
+        exit 1
+    }
+done
+license_source="$staging_dir/.license-source"
+mkdir -m 0700 -- "$license_source"
+cp -L -- "$image_license_source/image_license.manifest" \
+    "$package_license_source/license.manifest" \
+    "$package_license_source/package.manifest" \
+    "$license_source/"
 spdx_export="Cosmopod-OS-$version-$board-spdx.tar.zst"
 license_export="Cosmopod-OS-$version-$board-licenses.tar.xz"
 cve_export="Cosmopod-OS-$version-$board-cve.json"
@@ -750,6 +767,10 @@ if (( cve_gate_exit > 1 )); then
     echo "CVE gate input validation failed" >&2
     exit "$cve_gate_exit"
 fi
+rm -f -- "$license_source/image_license.manifest" \
+    "$license_source/license.manifest" \
+    "$license_source/package.manifest"
+rmdir -- "$license_source"
 cve_gate_as_of=$(sed -n 's/^as_of=//p' "$staging_dir/$cve_gate_export")
 cve_database_age_seconds=$(sed -n 's/^database_age_seconds=//p' \
     "$staging_dir/$cve_gate_export")
