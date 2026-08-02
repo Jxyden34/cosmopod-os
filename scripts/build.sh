@@ -643,7 +643,7 @@ else
 fi
 
 spdx_source="$deploy_dir/$evidence_image_name.spdx.tar.zst"
-cve_source="$deploy_dir/$evidence_image_name.cve.json"
+cve_source="$deploy_dir/$evidence_image_name.sbom-cve-check.yocto.json"
 license_source="$tmp_dir/deploy/licenses/${machine//-/_}/$evidence_image_name"
 spdx_export="Cosmopod-OS-$version-$board-spdx.tar.zst"
 license_export="Cosmopod-OS-$version-$board-licenses.tar.xz"

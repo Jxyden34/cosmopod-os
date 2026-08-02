@@ -63,19 +63,15 @@ local_conf_header:
     PACKAGE_CLASSES = "package_ipk"
     LICENSE_FLAGS_ACCEPTED:append = " synaptics-killswitch"
 
-    INHERIT += "create-spdx cve-check"
+    OE_FRAGMENTS += "core/yocto/sbom-cve-check"
     SPDX_INCLUDE_SOURCES = "0"
     SPDX_ARCHIVE_PACKAGED = "0"
     SPDX_PRETTY = "1"
     COPY_LIC_MANIFEST = "1"
     COPY_LIC_DIRS = "1"
-    CVE_CHECK_CREATE_MANIFEST = "1"
-    CVE_CHECK_MANIFEST_JSON_SUFFIX = "cve.json"
-    CVE_CHECK_REPORT_PATCHED = "1"
-    # Keep complete text/JSON evidence, but do not emit the entire kernel CVE
-    # set as one console line.  That exceeds KAS/Python's stream line limit.
-    CVE_CHECK_SHOW_WARNINGS = "0"
-    CVE_DB_UPDATE_INTERVAL = "0"
+    # Keep complete JSON/SPDX evidence, but do not emit the entire kernel CVE
+    # set as one console line. That exceeds KAS/Python's stream line limit.
+    SBOM_CVE_CHECK_SHOW_WARNINGS = "0"
     include conf/distro/include/cve-extra-exclusions.inc
     ARTIFACTIMG_FSTYPE = "ext4"
     MENDER_STORAGE_TOTAL_SIZE_MB = "7450"

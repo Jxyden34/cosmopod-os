@@ -466,9 +466,8 @@ def check_release_security_evidence() -> None:
     keygen = (ROOT / "scripts/generate-signing-key.sh").read_text(encoding="utf-8")
     waivers = (ROOT / "security/cve-waivers.json").read_text(encoding="utf-8")
     for marker in (
-        'INHERIT += "create-spdx cve-check"',
-        'CVE_CHECK_CREATE_MANIFEST = "1"',
-        'CVE_CHECK_MANIFEST_JSON_SUFFIX = "cve.json"',
+        'OE_FRAGMENTS += "core/yocto/sbom-cve-check"',
+        'SBOM_CVE_CHECK_SHOW_WARNINGS = "0"',
         'COPY_LIC_MANIFEST = "1"',
         'COPY_LIC_DIRS = "1"',
     ):
