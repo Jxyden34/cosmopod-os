@@ -350,7 +350,7 @@ EOF
         echo "Extracted license manifest is empty" >&2
         exit 1
     }
-    [[ $(grep -Fxc 'format=cosmopod-cve-gate-v3' "$out_dir/$cve_gate") -eq 1 &&
+    [[ $(grep -Fxc 'format=cosmopod-cve-gate-v4' "$out_dir/$cve_gate") -eq 1 &&
        $(grep -Fxc "as_of=$cve_gate_as_of" "$out_dir/$cve_gate") -eq 1 &&
        $(grep -Fxc "evaluated_at=$cve_gate_checked_at" "$out_dir/$cve_gate") -eq 1 &&
        $(grep -Fxc "report_sha256=$(sha256sum "$out_dir/$cve_report" | awk '{print $1}')" "$out_dir/$cve_gate") -eq 1 &&

@@ -46,7 +46,7 @@ def database() -> object:
         "c" * 64,
         100_000_000,
         checked - timedelta(seconds=60),
-        250_000,
+        2,
         500_000,
         checked - timedelta(hours=1),
         checked - timedelta(hours=2),
@@ -66,12 +66,12 @@ def coverage() -> object:
 def database_evidence_text() -> str:
     return "\n".join(
         [
-            "format=cosmopod-cve-database-evidence-v1",
+            "format=cosmopod-cve-database-evidence-v2",
             f"database_sha256={'c' * 64}",
             "database_bytes=100000000",
             "database_mtime_utc=2026-07-16T11:59:00Z",
-            "database_nvd_rows=250000",
-            "database_products_rows=500000",
+            "database_sources=2",
+            "database_files=500000",
             "database_latest_modified_utc=2026-07-16T11:00:00Z",
             "build_started_at=2026-07-16T10:00:00Z",
             "checked_at=2026-07-16T12:00:00Z",
@@ -81,6 +81,10 @@ def database_evidence_text() -> str:
             "database_content_max_age_seconds=1209600",
             "database_integrity=ok",
             "database_refreshed_during_build=true",
+            f"source_cvelist_commit={'1' * 40}",
+            f"source_cvelist_tree={'2' * 40}",
+            f"source_nvd_fkie_commit={'3' * 40}",
+            f"source_nvd_fkie_tree={'4' * 40}",
             "",
         ]
     )
@@ -269,7 +273,7 @@ class CveGateTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             evidence = output_path.read_text(encoding="utf-8")
-            self.assertIn("format=cosmopod-cve-gate-v3", evidence)
+            self.assertIn("format=cosmopod-cve-gate-v4", evidence)
             self.assertIn("database_age_seconds=60", evidence)
             self.assertIn("coverage_complete=true", evidence)
         finally:

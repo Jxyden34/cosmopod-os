@@ -14,19 +14,19 @@ SPEC.loader.exec_module(CVE_DATABASE)
 
 
 class CveDatabaseTests(unittest.TestCase):
-    def test_yocto_naive_nvd_timestamp_is_utc(self) -> None:
-        parsed = CVE_DATABASE.parse_database_timestamp("2026-07-24T01:17:47.030")
+    def test_release_timestamp_is_utc(self) -> None:
+        parsed = CVE_DATABASE.parse_utc("2026-07-24T01:17:47Z")
         self.assertEqual(
             parsed,
             datetime(2026, 7, 24, 1, 17, 47, tzinfo=timezone.utc),
         )
 
-    def test_invalid_nvd_timestamp_is_rejected(self) -> None:
+    def test_invalid_release_timestamp_is_rejected(self) -> None:
         with self.assertRaisesRegex(
-            CVE_DATABASE.DatabaseError,
-            "invalid intrinsic timestamp",
+            ValueError,
+            "timestamp must be UTC",
         ):
-            CVE_DATABASE.parse_database_timestamp("not-a-timestamp")
+            CVE_DATABASE.parse_utc("not-a-timestamp")
 
 
 if __name__ == "__main__":

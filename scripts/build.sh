@@ -642,7 +642,7 @@ else
     evidence_image_name="cosmopod-image-$device_type"
 fi
 
-spdx_source="$deploy_dir/$evidence_image_name.spdx.tar.zst"
+spdx_source="$deploy_dir/$evidence_image_name.spdx.json"
 cve_source="$deploy_dir/$evidence_image_name.sbom-cve-check.yocto.json"
 license_source="$tmp_dir/deploy/licenses/${machine//-/_}/$evidence_image_name"
 spdx_export="Cosmopod-OS-$version-$board-spdx.tar.zst"
@@ -669,14 +669,17 @@ done
     echo "Image CVE report missing or empty: $cve_source" >&2
     exit 1
 }
-cve_database="$cache_root/downloads/CVE_CHECK/nvdcve_2-2.db"
-[[ -f "$cve_database" && -s "$cve_database" && ! -L "$cve_database" ]] || {
-    echo "Yocto NVD database missing, empty, or symlinked: $cve_database" >&2
+cve_database="$tmp_dir/deploy/sbom-cve-check/databases"
+[[ -d "$cve_database" && ! -L "$cve_database" ]] || {
+    echo "Yocto SBOM CVE database directory missing or symlinked: $cve_database" >&2
     exit 1
 }
 cve_gate_checked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-cp -L -- "$spdx_source" "$staging_dir/$spdx_export"
+spdx_source_name=${spdx_source##*/}
+tar -C "$deploy_dir" --sort=name --mtime=@0 --owner=0 --group=0 \
+    --numeric-owner -cf - "$spdx_source_name" | \
+    zstd --quiet --stdout > "$staging_dir/$spdx_export"
 tar -C "$license_source" --sort=name --mtime=@0 --owner=0 --group=0 \
     --numeric-owner -cJf "$staging_dir/$license_export" .
 spdx_entries="$staging_dir/.spdx.entries"
@@ -735,7 +738,7 @@ cve_gate_coverage_extra=$(sed -n 's/^coverage_extra=//p' \
     "$staging_dir/$cve_gate_export")
 cve_gate_decision=$(sed -n 's/^decision=//p' "$staging_dir/$cve_gate_export")
 cve_gate_denied=$(sed -n 's/^denied=//p' "$staging_dir/$cve_gate_export")
-[[ $(grep -Fxc 'format=cosmopod-cve-gate-v3' "$staging_dir/$cve_gate_export") -eq 1 &&
+[[ $(grep -Fxc 'format=cosmopod-cve-gate-v4' "$staging_dir/$cve_gate_export") -eq 1 &&
    $(grep -c '^as_of=' "$staging_dir/$cve_gate_export") -eq 1 &&
    "$cve_gate_as_of" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ &&
    "$cve_database_age_seconds" =~ ^[0-9]+$ &&

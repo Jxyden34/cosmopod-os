@@ -405,7 +405,7 @@ def check_release_provenance() -> None:
         "KAS overlay does not reproduce from recorded build inputs",
         "spdx_bundle_sha256=",
         "cve_database_evidence_sha256=",
-        "format=cosmopod-cve-gate-v3",
+        "format=cosmopod-cve-gate-v4",
         "--database-evidence",
         "--license-manifest",
         "--verification-at",
@@ -427,7 +427,7 @@ def check_release_provenance() -> None:
         "SPDX archive contains no SPDX JSON document",
         "database_fresh=true",
         "coverage_complete=true",
-        "format=cosmopod-cve-gate-v3",
+        "format=cosmopod-cve-gate-v4",
         "--database-evidence",
         "--license-manifest",
         "--verification-at",
@@ -436,8 +436,9 @@ def check_release_provenance() -> None:
     ):
         if marker not in validator:
             fail(f"artifact security evidence validation missing: {marker}")
-    if "cosmopod-cve-gate-v2" in signer or "cosmopod-cve-gate-v2" in validator:
-        fail("release signer or validator still accepts obsolete CVE gate v2 evidence")
+    for obsolete_gate in ("cosmopod-cve-gate-v2", "cosmopod-cve-gate-v3"):
+        if obsolete_gate in signer or obsolete_gate in validator:
+            fail("release signer or validator still accepts obsolete CVE gate evidence")
 
     operator = (ROOT / "backend/production/release.sh").read_text(encoding="utf-8")
     for marker in (
