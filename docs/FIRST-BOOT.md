@@ -13,8 +13,15 @@ bootable by Raspberry Pi firmware; use the partitioned `.img.xz` release.
 From Linux/WSL in the release directory:
 
 ```bash
+openssl dgst -sha256 -verify artifact-verify-key.pem \
+  -signature SHA256SUMS.sig SHA256SUMS
 sha256sum --check SHA256SUMS
 ```
+
+Obtain `artifact-verify-key.pem` through the trusted project source or release
+key channel, never from the same unauthenticated download alone. VM-only or
+unsigned factory-test bundles do not contain `SHA256SUMS.sig`; their checksum
+index needs an authenticated release-ledger digest instead.
 
 From PowerShell, compare `Get-FileHash -Algorithm SHA256 <file>` with the entry
 in `SHA256SUMS`.

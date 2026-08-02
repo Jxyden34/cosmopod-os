@@ -6,5 +6,16 @@ production/*secret*.yaml
 production/*credentials*.yaml
 production/**/*secret*.yaml
 production/**/*credentials*.yaml
+production/values.private.yaml
+production/values.*.private.yaml
+production/kubeconfig*
+production/*.tfvars
+production/*.tfstate
+production/*.tfstate.*
+production/*.plan
+production/*.rendered.yaml
+production/.terraform/
+production/.helm/
+production/rendered/
 *.p12
 *.pfx

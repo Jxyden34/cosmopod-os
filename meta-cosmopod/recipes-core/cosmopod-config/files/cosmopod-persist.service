@@ -1,6 +1,7 @@
 [Unit]
 Description=Prepare Cosmopod persistent state
-After=data.mount local-fs.target
+Wants=sshdgenkeys.service
+After=data.mount local-fs.target sshdgenkeys.service
 Before=NetworkManager.service sshd.service weston.service cosmopod-firstboot.service
 
 [Service]

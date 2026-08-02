@@ -1,0 +1,380 @@
+#!/bin/sh
+set -u
+
+serial=$(cat /sys/class/dmi/id/product_serial 2>/dev/null || true)
+case "$serial" in
+    COSMOPOD-SMOKE-ISO) media=iso ;;
+    COSMOPOD-SMOKE-QCOW2) media=qcow2 ;;
+    *) exit 0 ;;
+esac
+
+serial_device=/dev/ttyS1
+[ -c "$serial_device" ] || exit 1
+exec 3>"$serial_device"
+
+failures=0
+
+emit() {
+    # ttyS1 is a dedicated host-captured evidence channel. ttyS0 remains the
+    # normal human serial console and may be reconfigured by serial-getty.
+    printf '%s\n' "$*" >&3
+}
+
+pass_check() {
+    emit "COSMOPOD_SMOKE $1=PASS"
+}
+
+fail_check() {
+    failures=$((failures + 1))
+    emit "COSMOPOD_SMOKE $1=FAIL detail=$2"
+}
+
+check_service() {
+    service=$1
+    state=$(systemctl is-active "$service" 2>/dev/null || true)
+    if [ "$state" = active ]; then
+        pass_check "service.$service"
+    else
+        fail_check "service.$service" "state=$state"
+    fi
+}
+
+emit_weston_diagnostics() {
+    emit "COSMOPOD_WESTON_LOG_BEGIN"
+    systemctl show weston.service \
+        -p ActiveState -p SubState -p Result -p ExecMainCode -p ExecMainStatus \
+        --no-pager >&3 2>&3 || true
+    journalctl -b -u weston.service --no-pager -o short-monotonic >&3 2>&3 || true
+    if [ -r /run/user/1000/weston.log ]; then
+        cat /run/user/1000/weston.log >&3 2>&3 || true
+    fi
+    if ! systemctl is-active --quiet weston.service; then
+        ls -l /dev/dri >&3 2>&3 || true
+        loginctl >&3 2>&3 || true
+        id cosmopod >&3 2>&3 || true
+    fi
+    emit "COSMOPOD_WESTON_LOG_END"
+}
+
+mount_options() {
+    findmnt -n -o OPTIONS --target "$1" 2>/dev/null || true
+}
+
+has_mount_option() {
+    options=$(mount_options "$1")
+    case ",$options," in
+        *,"$2",*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+check_effective_sshd_value() {
+    key=$1
+    expected=$2
+    if printf '%s\n' "$sshd_effective" | grep -Fqx "$key $expected"; then
+        pass_check "sshd.$key"
+    else
+        fail_check "sshd.$key" "expected=$expected"
+    fi
+}
+
+sshd_is_listening() {
+    awk '$2 ~ /:0016$/ && $4 == "0A" { found=1 } END { exit !found }' \
+        /proc/net/tcp /proc/net/tcp6 2>/dev/null
+}
+
+emit "COSMOPOD_SMOKE_BEGIN media=$media"
+
+kernel_cmdline=$(cat /proc/cmdline 2>/dev/null || true)
+emit "COSMOPOD_SMOKE boot.cmdline=$kernel_cmdline"
+case " $kernel_cmdline " in
+    *" console=ttyS0,115200"*) pass_check boot.serial-console ;;
+    *) fail_check boot.serial-console missing ;;
+esac
+
+if [ -r /etc/os-release ]; then
+    # shellcheck disable=SC1091
+    . /etc/os-release
+    if [ "${ID:-}" = cosmopod ]; then
+        pass_check os.id
+    else
+        fail_check os.id "value=${ID:-missing}"
+    fi
+    emit "COSMOPOD_SMOKE os.version=${VERSION_ID:-unknown}"
+else
+    fail_check os.release missing
+fi
+
+for service in \
+    cosmopod-vm-data.service \
+    cosmopod-persist.service \
+    NetworkManager.service \
+    sshd.service \
+    serial-getty@ttyS0.service \
+    weston.service
+do
+    check_service "$service"
+done
+if ! systemctl is-active --quiet cosmopod-persist.service; then
+    emit "COSMOPOD_PERSIST_LOG_BEGIN"
+    systemctl show cosmopod-persist.service \
+        -p ActiveState -p SubState -p Result -p ExecMainCode -p ExecMainStatus \
+        --no-pager >&3 2>&3 || true
+    journalctl -b -u cosmopod-persist.service --no-pager -o short-monotonic \
+        >&3 2>&3 || true
+    command -v ssh-keygen >&3 2>&3 || true
+    ls -ld /data /data/cosmopod /data/cosmopod/ssh >&3 2>&3 || true
+    find /data/cosmopod/ssh -maxdepth 1 -printf '%M %u:%g %f\n' >&3 2>&3 || true
+    emit "COSMOPOD_PERSIST_LOG_END"
+fi
+emit_weston_diagnostics
+# Give agetty time to write its literal login prompt. The listener check below
+# is non-blocking, so it cannot delay the remaining evidence stream.
+sleep 2
+root_options=$(mount_options /)
+data_options=$(mount_options /data)
+emit "COSMOPOD_SMOKE mount.root.options=$root_options"
+emit "COSMOPOD_SMOKE mount.data.options=$data_options"
+
+if mountpoint -q /data; then
+    pass_check mount.data
+else
+    fail_check mount.data not-mounted
+fi
+
+if has_mount_option /data rw; then
+    pass_check mount.data.rw
+else
+    fail_check mount.data.rw "options=$data_options"
+fi
+
+for option in nodev nosuid; do
+    if has_mount_option /data "$option"; then
+        pass_check "mount.data.$option"
+    else
+        fail_check "mount.data.$option" "options=$data_options"
+    fi
+done
+
+data_probe=/data/.cosmopod-smoke-write.$$
+if (umask 077 && printf '%s\n' smoke > "$data_probe" && rm -f "$data_probe"); then
+    pass_check mount.data.write
+else
+    rm -f "$data_probe" 2>/dev/null || true
+    fail_check mount.data.write failed
+fi
+
+if [ "$media" = qcow2 ]; then
+    persistence_sentinel=/data/cosmopod/.vm-smoke-persistence-v1
+    persistence_value=cosmopod-vm-smoke-persistence-v1
+    if [ -e "$persistence_sentinel" ] || [ -L "$persistence_sentinel" ]; then
+        persistence_state=existing
+    elif (umask 077 && printf '%s\n' "$persistence_value" > "$persistence_sentinel"); then
+        persistence_state=created
+    else
+        persistence_state=write-failed
+    fi
+    emit "COSMOPOD_SMOKE persistence.state=$persistence_state"
+    if [ ! -L "$persistence_sentinel" ] && \
+        [ -f "$persistence_sentinel" ] && \
+        [ "$(cat "$persistence_sentinel" 2>/dev/null || true)" = "$persistence_value" ] && \
+        [ "$(stat -c '%U:%G:%a' "$persistence_sentinel" 2>/dev/null || true)" = root:root:600 ]
+    then
+        pass_check persistence.sentinel
+    else
+        fail_check persistence.sentinel "state=$persistence_state"
+    fi
+fi
+
+for target in /home/cosmopod /etc/NetworkManager/system-connections; do
+    key=$(printf '%s' "$target" | tr '/' '.')
+    if mountpoint -q "$target"; then
+        pass_check "mount$key"
+    else
+        fail_check "mount$key" not-mounted
+    fi
+done
+
+data_fstype=$(findmnt -n -o FSTYPE --target /data 2>/dev/null || true)
+emit "COSMOPOD_SMOKE mount.data.fstype=$data_fstype"
+if [ "$media" = iso ]; then
+    if has_mount_option / ro; then
+        pass_check mount.root.ro
+    else
+        fail_check mount.root.ro "options=$root_options"
+    fi
+    if [ "$data_fstype" = tmpfs ]; then
+        pass_check mount.data.tmpfs
+    else
+        fail_check mount.data.tmpfs "fstype=$data_fstype"
+    fi
+    if [ -z "$(swapon --show=NAME --noheadings --raw 2>/dev/null)" ]; then
+        pass_check swap.none
+    else
+        fail_check swap.none active-swap-found
+    fi
+else
+    if has_mount_option / rw; then
+        pass_check mount.root.rw
+    else
+        fail_check mount.root.rw "options=$root_options"
+    fi
+    if [ "$data_fstype" = ext4 ]; then
+        pass_check mount.data.ext4
+    else
+        fail_check mount.data.ext4 "fstype=$data_fstype"
+    fi
+    data_label=$(findmnt -n -o LABEL --target /data 2>/dev/null || true)
+    if [ "$data_label" = cosmopod-data ]; then
+        pass_check mount.data.label
+    else
+        fail_check mount.data.label "label=$data_label"
+    fi
+    if swapon --show=LABEL --noheadings --raw 2>/dev/null | grep -Fqx swap1; then
+        pass_check swap.swap1
+    else
+        fail_check swap.swap1 inactive
+    fi
+fi
+
+if /usr/sbin/sshd -t >/dev/null 2>&1; then
+    pass_check sshd.syntax
+else
+    fail_check sshd.syntax invalid
+fi
+
+sshd_effective=$(/usr/sbin/sshd -T \
+    -C user=cosmopod,host=cosmopod,addr=127.0.0.1 2>/dev/null || true)
+check_effective_sshd_value passwordauthentication no
+check_effective_sshd_value kbdinteractiveauthentication no
+check_effective_sshd_value permitemptypasswords no
+check_effective_sshd_value permitrootlogin no
+check_effective_sshd_value pubkeyauthentication yes
+check_effective_sshd_value authenticationmethods publickey
+check_effective_sshd_value allowusers cosmopod
+
+for host_key in \
+    /data/cosmopod/ssh/ssh_host_ed25519_key \
+    /data/cosmopod/ssh/ssh_host_rsa_key
+do
+    if printf '%s\n' "$sshd_effective" | grep -Fqx "hostkey $host_key" && \
+        [ -s "$host_key" ] && [ "$(stat -c '%U:%G:%a' "$host_key" 2>/dev/null)" = root:root:600 ]
+    then
+        pass_check "sshd.hostkey.${host_key##*/}"
+        emit "COSMOPOD_SMOKE sshd.hostkey.fingerprint=$(ssh-keygen -lf "$host_key" 2>/dev/null || true)"
+    else
+        fail_check "sshd.hostkey.${host_key##*/}" invalid
+    fi
+done
+
+if sshd_is_listening; then
+    pass_check sshd.listener
+else
+    fail_check sshd.listener port-22-not-listening
+fi
+
+if pgrep -u 1000 -x weston >/dev/null 2>&1; then
+    pass_check weston.uid1000
+else
+    fail_check weston.uid1000 no-process
+fi
+
+wayland_socket=$(find /run/user/1000 -maxdepth 1 -type s -name 'wayland-*' -print -quit 2>/dev/null || true)
+if [ -n "$wayland_socket" ]; then
+    pass_check weston.socket
+    emit "COSMOPOD_SMOKE weston.socket.path=$wayland_socket"
+    emit "COSMOPOD_SMOKE weston.socket.owner=$(stat -c '%U:%G:%a' "$wayland_socket" 2>/dev/null || true)"
+else
+    fail_check weston.socket missing
+fi
+
+runtime_owner=$(stat -c '%U:%G:%a' /run/user/1000 2>/dev/null || true)
+emit "COSMOPOD_SMOKE weston.runtime.owner=$runtime_owner"
+case "$runtime_owner" in
+    cosmopod:*:700) pass_check weston.runtime ;;
+    *) fail_check weston.runtime "owner=$runtime_owner" ;;
+esac
+
+if [ -c /dev/dri/card0 ]; then
+    pass_check drm.card0
+    emit "COSMOPOD_SMOKE drm.driver=$(basename "$(readlink -f /sys/class/drm/card0/device/driver 2>/dev/null || true)")"
+else
+    fail_check drm.card0 missing
+fi
+
+connected_status=$(grep -l '^connected$' /sys/class/drm/card*-*/status 2>/dev/null | head -n 1 || true)
+if [ -n "$connected_status" ]; then
+    connector=${connected_status%/status}
+    emit "COSMOPOD_SMOKE drm.connector=$(basename "$connector")"
+    if [ -s "$connector/modes" ]; then
+        pass_check drm.connected-output
+        emit "COSMOPOD_SMOKE drm.mode=$(head -n 1 "$connector/modes")"
+    else
+        fail_check drm.connected-output no-mode
+    fi
+else
+    fail_check drm.connected-output no-connected-connector
+fi
+
+wayland_info=/run/cosmopod-smoke-wayland-info.$$
+if [ -n "$wayland_socket" ] && timeout 15 \
+    sudo -n -u cosmopod -- env \
+        XDG_RUNTIME_DIR=/run/user/1000 \
+        WAYLAND_DISPLAY="${wayland_socket##*/}" \
+        wayland-info > "$wayland_info" 2>&1
+then
+    wayland_ok=1
+    for interface in wl_compositor wl_shm xdg_wm_base wl_output; do
+        if ! grep -Fq "interface: '$interface'" "$wayland_info"; then
+            wayland_ok=0
+            fail_check "wayland.$interface" missing
+        fi
+    done
+    if [ "$wayland_ok" -eq 1 ]; then
+        pass_check wayland.client
+    fi
+    emit "COSMOPOD_WAYLAND_INFO_BEGIN"
+    grep -E "interface: '(wl_compositor|wl_shm|xdg_wm_base|wl_output)'|^[[:space:]]+mode:" \
+        "$wayland_info" >&3 2>&3 || true
+    emit "COSMOPOD_WAYLAND_INFO_END"
+else
+    fail_check wayland.client cannot-connect
+fi
+rm -f "$wayland_info"
+
+if [ "$failures" -eq 0 ]; then
+    emit "COSMOPOD_SMOKE_SCREENSHOT_READY"
+fi
+sleep 12
+stable_socket=$(find /run/user/1000 -maxdepth 1 -type s -name 'wayland-*' -print -quit 2>/dev/null || true)
+if systemctl is-active --quiet weston.service && \
+    pgrep -u 1000 -x weston >/dev/null 2>&1 && \
+    [ -n "$stable_socket" ]
+then
+    pass_check weston.stable
+else
+    fail_check weston.stable stopped-during-observation
+fi
+
+failed_units=$(systemctl --failed --no-legend --plain 2>/dev/null || true)
+if [ -z "$failed_units" ]; then
+    pass_check systemd.failed-units
+else
+    fail_check systemd.failed-units present
+    emit "COSMOPOD_FAILED_UNITS_BEGIN"
+    printf '%s\n' "$failed_units" >&3
+    emit "COSMOPOD_FAILED_UNITS_END"
+fi
+
+if [ "$failures" -eq 0 ]; then
+    result=PASS
+    exit_code=0
+else
+    result=FAIL
+    exit_code=1
+fi
+emit "COSMOPOD_SMOKE failures=$failures"
+emit "COSMOPOD_SMOKE_RESULT=$result"
+sync
+systemctl poweroff --no-block >/dev/null 2>&1 || true
+exit "$exit_code"

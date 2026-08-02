@@ -1,0 +1,13 @@
+[Unit]
+Description=Report fixed Cosmopod VM smoke-test evidence
+After=cosmopod-vm-data.service cosmopod-persist.service NetworkManager.service sshd.service weston.service serial-getty@ttyS0.service
+Wants=serial-getty@ttyS0.service
+
+[Service]
+Type=oneshot
+ExecCondition=/usr/libexec/cosmopod-vm-smoke-condition
+ExecStart=/usr/libexec/cosmopod-vm-smoke
+TimeoutStartSec=180
+
+[Install]
+WantedBy=graphical.target

@@ -28,3 +28,11 @@ EXTRA_USERS_PARAMS = " \
 # Put provisioning template on FAT boot partition visible after flashing.
 IMAGE_BOOT_FILES:append = " cosmopod.conf.example"
 do_image_bootimg[depends] += "cosmopod-config:do_deploy"
+
+# Yocto's live init copies the optical-media mount below /media after
+# switching to the read-only rootfs. Package QA deliberately reserves
+# /media, so create this mount point during x86 VM image assembly.
+ROOTFS_POSTPROCESS_COMMAND:append:genericx86-64 = " cosmopod_vm_live_mountpoints;"
+cosmopod_vm_live_mountpoints() {
+    install -d -m 0755 ${IMAGE_ROOTFS}/media/boot-sr0
+}

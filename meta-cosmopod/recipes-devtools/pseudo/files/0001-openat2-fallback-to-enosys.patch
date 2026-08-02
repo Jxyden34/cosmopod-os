@@ -1,0 +1,53 @@
+From 4ab08c6371a19320b425dd8a9be662cc39c8eada Mon Sep 17 00:00:00 2001
+From: Cosmopod OS <builds@cosmopod.local>
+Date: Thu, 23 Jul 2026 23:00:00 +0000
+Subject: [PATCH] openat2: fall back with ENOSYS
+
+The complete openat2 wrapper added after pseudo 1.9.8 loses pipeline file
+descriptors on empty-path probes from glibc 2.43 tools. This breaks
+update-alternatives while an image rootfs is assembled and leaves BusyBox
+applet links missing.
+
+When canonicalizing a preserved path fails, route the request through the
+wrapper instead of treating the null canonical path as ignored. Return ENOSYS
+only for a null or empty original path so the probing caller can use its
+existing fallback. Preserve pseudo's full wrapper for real file paths because
+patched GNU tar uses openat2 without retrying on ENOSYS.
+
+Upstream-Status: Inappropriate [host compatibility fallback]
+Signed-off-by: Cosmopod OS <builds@cosmopod.local>
+---
+ makewrappers                       | 2 ++
+ ports/linux/openat2/guts/openat2.c | 4 ++++
+ 2 files changed, 6 insertions(+)
+
+diff --git a/ports/linux/openat2/guts/openat2.c b/ports/linux/openat2/guts/openat2.c
+index 946a4e4..a1ec0f7 100644
+--- a/ports/linux/openat2/guts/openat2.c
++++ b/ports/linux/openat2/guts/openat2.c
+@@ -8,6 +8,10 @@
+  * int openat2(int dirfd, const char *path, const struct open_how *how, size_t size)
+  *	int rc = -1;
+  */
++	if (!path || path[0] == '\0') {
++		errno = ENOSYS;
++		return -1;
++	}
+ 	struct stat64 buf;
+ 	int overly_magic_nonblocking = 0;
+ 	int existed = 1;
+diff --git a/makewrappers b/makewrappers
+index 326f70e..d169d87 100755
+--- a/makewrappers
++++ b/makewrappers
+@@ -443,6 +443,8 @@ class Function:
+             mainpath += "_int"
+ 
+         if mainpath:
++            if self.preserve_paths:
++                return "(%s && pseudo_client_ignore_path(%s))" % (mainpath, mainpath)
+             return "pseudo_client_ignore_path(%s)" % mainpath
+         if self.fd_arg:
+             return "pseudo_client_ignore_fd(%s)" % self.fd_arg
+-- 
+2.43.0

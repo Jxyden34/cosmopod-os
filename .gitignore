@@ -34,6 +34,7 @@ backend/.env
 !meta-cosmopod/recipes-mender/mender/files/artifact-verify-key.pem
 
 # Editor / OS noise
+.gh-auth-*.log
 .DS_Store
 Thumbs.db
 .idea/

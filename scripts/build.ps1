@@ -8,7 +8,17 @@ param(
     [ValidateSet('auto', 'native', 'container')]
     [string]$Engine = 'auto',
 
-    [switch]$CheckoutOnly
+    [ValidateSet('auto', 'development', 'release')]
+    [string]$Channel = 'auto',
+
+    [switch]$CheckoutOnly,
+
+    [switch]$AllowDirty,
+
+    [switch]$ReplaceOutput,
+
+    [ValidatePattern('^https://[A-Za-z0-9][A-Za-z0-9.-]*(?::[0-9]{1,5})?$')]
+    [string]$MenderServerUrl = 'https://kys.dpdns.org'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -26,9 +36,19 @@ $drive = $Matches[1].ToLowerInvariant()
 $tail = $Matches[2].Replace('\', '/')
 $wslProject = "/mnt/$drive/$tail"
 $mode = if ($CheckoutOnly) { '--checkout-only' } else { '--build' }
+$arguments = @(
+    $mode,
+    '--engine', $Engine,
+    '--channel', $Channel,
+    '--board', $Board,
+    '--version', $Version,
+    '--mender-server-url', $MenderServerUrl
+)
+if ($AllowDirty) { $arguments += '--allow-dirty' }
+if ($ReplaceOutput) { $arguments += '--replace-output' }
 
-Write-Host "Cosmopod OS: board=$Board version=$Version engine=$Engine"
-& wsl.exe -d Ubuntu -- bash "$wslProject/scripts/build.sh" $mode --engine $Engine --board $Board --version $Version
+Write-Host "Cosmopod OS: board=$Board version=$Version engine=$Engine channel=$Channel mender=$MenderServerUrl"
+& wsl.exe -d Ubuntu -- bash "$wslProject/scripts/build.sh" @arguments
 if ($LASTEXITCODE -ne 0) {
     throw "Cosmopod OS build failed with exit code $LASTEXITCODE"
 }

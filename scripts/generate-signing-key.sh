@@ -20,8 +20,8 @@ fi
 
 umask 077
 install -d -m 0700 "$key_dir"
-openssl genpkey -algorithm RSA -out "$private" -pkeyopt rsa_keygen_bits:3072
-openssl rsa -in "$private" -pubout -out "$public"
+openssl genpkey -algorithm EC -out "$private" -pkeyopt ec_paramgen_curve:P-256
+openssl pkey -in "$private" -pubout -out "$public"
 install -m 0644 "$public" "$device_public"
 
 cat <<EOF
@@ -30,4 +30,5 @@ Created:
   public:  $device_public
 
 Back up private key offline. Rebuild all factory images before using this key.
+Algorithm: ECDSA P-256.
 EOF

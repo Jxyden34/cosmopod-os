@@ -91,6 +91,8 @@ require_checkout() {
     fail "evaluation checkout missing; run scripts/bootstrap-evaluation.sh first"
   [[ "$(git -C "${MENDER_SERVER_DIR}" rev-parse HEAD)" == "${MENDER_SERVER_COMMIT}" ]] || \
     fail "evaluation checkout is not pinned to ${MENDER_SERVER_COMMIT}"
+  [[ -z "$(git -C "${MENDER_SERVER_DIR}" status --porcelain --untracked-files=all)" ]] || \
+    fail "evaluation checkout has local or untracked changes; refusing to run it"
   [[ -f "${MENDER_SERVER_DIR}/docker-compose.yml" ]] || \
     fail "pinned checkout has no docker-compose.yml"
 }

@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+
+# A normal Cosmopod VM never runs the smoke reporter. The host must opt in by
+# setting this fixed QEMU SMBIOS serial value. The reporter accepts no commands
+# or data from the host.
+serial=$(cat /sys/class/dmi/id/product_serial 2>/dev/null || true)
+case "$serial" in
+    COSMOPOD-SMOKE-ISO|COSMOPOD-SMOKE-QCOW2) exit 0 ;;
+    *) exit 1 ;;
+esac

@@ -1,0 +1,28 @@
+From: Cosmopod OS Build Team <builds@cosmopod.invalid>
+Date: Thu, 23 Jul 2026 23:25:00 +0100
+Subject: [PATCH] debuginfod: keep strchr result const
+
+The HTTP header input is const and the matching colon is never modified.
+Keep the const qualifier required by newer glibc headers.
+
+Upstream-Status: Pending
+
+---
+ debuginfod/debuginfod-client.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/debuginfod/debuginfod-client.c b/debuginfod/debuginfod-client.c
+index 6b8a99a..c3c54f6 100644
+--- a/debuginfod/debuginfod-client.c
++++ b/debuginfod/debuginfod-client.c
+@@ -2031,7 +2031,7 @@ int debuginfod_add_http_header (debuginfod_client *client, const char* header)
+   /* Sanity check header value is of the form Header: Value.
+      It should contain at least one colon that isn't the first or
+      last character.  */
+-  char *colon = strchr (header, ':'); /* first colon */
++  const char *colon = strchr (header, ':'); /* first colon */
+   if (colon == NULL /* present */
+       || colon == header /* not at beginning - i.e., have a header name */
+       || *(colon + 1) == '\0') /* not at end - i.e., have a value */
+-- 
+2.43.0

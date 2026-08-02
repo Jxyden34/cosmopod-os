@@ -32,6 +32,17 @@ while [ "$elapsed" -lt "$deadline" ]; do
         healthy=false
         reason="Wayland socket is absent"
     fi
+    if [ "$healthy" = true ] && [ -e /usr/share/cosmopod/pi-hardware ]; then
+        watchdog_runtime=$(systemctl show --property=RuntimeWatchdogUSec --value 2>/dev/null || true)
+        if ! { [ -c /dev/watchdog ] || [ -c /dev/watchdog0 ]; }; then
+            healthy=false
+            reason="Raspberry Pi hardware watchdog device is absent"
+        elif [ -z "$watchdog_runtime" ] || [ "$watchdog_runtime" = 0 ] || \
+             [ "$watchdog_runtime" = 0us ] || [ "$watchdog_runtime" = infinity ]; then
+            healthy=false
+            reason="systemd hardware watchdog is not active"
+        fi
+    fi
 
     if [ "$healthy" = true ]; then
         probe="/data/cosmopod/.ota-health.$$"
