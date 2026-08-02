@@ -197,6 +197,9 @@ def check_vm_image_scoping() -> None:
     ).read_text(encoding="utf-8")
     for seatd_control in (
         "ExecStart=/usr/bin/seatd -g wayland",
+        "Environment=SEATD_VTBOUND=0",
+        "while [ ! -S /run/seatd.sock ]",
+        "TimeoutStartSec=10",
         "NoNewPrivileges=yes",
         "ProtectSystem=strict",
         "RestrictAddressFamilies=AF_UNIX",
@@ -205,6 +208,8 @@ def check_vm_image_scoping() -> None:
             fail(f"VM seat broker hardening missing: {seatd_control}")
     if "Requires=cosmopod-seatd.service" not in weston_vm:
         fail("VM Weston must require its seat broker")
+    if "Environment=LIBSEAT_BACKEND=seatd" not in weston_vm:
+        fail("VM Weston must use the ready seatd backend")
     kernel_append = (
         ROOT / "meta-cosmopod/recipes-kernel/linux/linux-yocto_%.bbappend"
     ).read_text(encoding="utf-8")
