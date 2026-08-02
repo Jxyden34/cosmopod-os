@@ -64,6 +64,7 @@ local_conf_header:
     LICENSE_FLAGS_ACCEPTED:append = " synaptics-killswitch"
 
     OE_FRAGMENTS += "core/yocto/sbom-cve-check"
+    INHERIT += "cosmopod-task-network-compat"
     SPDX_INCLUDE_SOURCES = "0"
     SPDX_ARCHIVE_PACKAGED = "0"
     SPDX_PRETTY = "1"

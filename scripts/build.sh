@@ -379,11 +379,6 @@ local_conf_header:
     BB_NUMBER_THREADS = "$bb_threads"
     PARALLEL_MAKE = "-j $make_jobs"
     COSMOPOD_ALLOW_UNCONFINED_TASK_NETWORK = "$allow_unconfined_task_network"
-    python () {
-        if d.getVar("COSMOPOD_ALLOW_UNCONFINED_TASK_NETWORK") == "true":
-            for task in (d.getVar("__BBTASKS") or "").split():
-                d.setVarFlag(task, "network", "1")
-    }
 EOF
 umask "$previous_umask"
 chmod 0400 "$overlay_tmp"

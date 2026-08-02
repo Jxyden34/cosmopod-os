@@ -470,6 +470,7 @@ def check_release_security_evidence() -> None:
     waivers = (ROOT / "security/cve-waivers.json").read_text(encoding="utf-8")
     for marker in (
         'OE_FRAGMENTS += "core/yocto/sbom-cve-check"',
+        'INHERIT += "cosmopod-task-network-compat"',
         'SBOM_CVE_CHECK_SHOW_WARNINGS = "0"',
         'COPY_LIC_MANIFEST = "1"',
         'COPY_LIC_DIRS = "1"',
