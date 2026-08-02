@@ -68,7 +68,11 @@ RDEPENDS:packagegroup-cosmopod-tools = " \
     make \
     nano \
     nmap \
-    packagegroup-core-full-cmdline \
+    packagegroup-core-full-cmdline-utils \
+    packagegroup-core-full-cmdline-extended \
+    packagegroup-core-full-cmdline-dev-utils \
+    packagegroup-core-full-cmdline-multiuser \
+    packagegroup-core-full-cmdline-sys-services \
     parted \
     pciutils \
     pkgconfig \
