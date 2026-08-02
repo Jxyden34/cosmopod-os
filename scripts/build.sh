@@ -166,12 +166,17 @@ flock --exclusive --nonblock "$global_build_lock_fd" || {
 if [[ "$original_root" == /mnt/* ]]; then
     command -v rsync >/dev/null || { echo "rsync is required" >&2; exit 1; }
     source_root=$(ensure_cache_dir "$cache_root/source")
-    rsync -a --delete --delete-excluded \
-        --exclude build --exclude 'build-*' --exclude out \
-        --include '/secrets/' --include '/secrets/README.md' \
-        --exclude '/secrets/***' --exclude '*/secrets/***' \
-        --exclude backend/.state/ --exclude backend/.runtime/ \
-        "$original_root/" "$source_root/"
+    # A fast builder may keep the checkout directly at the configured cache
+    # source path. Never run --delete-excluded rsync onto that same directory:
+    # it would erase ignored deliverables such as out/ before every board build.
+    if [[ "$original_root" != "$source_root" ]]; then
+        rsync -a --delete --delete-excluded \
+            --exclude build --exclude 'build-*' --exclude out \
+            --include '/secrets/' --include '/secrets/README.md' \
+            --exclude '/secrets/***' --exclude '*/secrets/***' \
+            --exclude backend/.state/ --exclude backend/.runtime/ \
+            "$original_root/" "$source_root/"
+    fi
 else
     source_root=$original_root
 fi

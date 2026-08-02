@@ -117,19 +117,21 @@ Read [update system](docs/UPDATE-SYSTEM.md) before deploying an update.
 
 ## Current status
 
-Version 0.42.0 completed clean Yocto builds for the x86-64 VM, Raspberry Pi 4,
-and Raspberry Pi 5. The VM ISO and QCOW2 both passed isolated QEMU smoke tests
-covering Wayland/Weston, SSH, systemd health, mounts, and QCOW2 persistence.
-Both Pi builds exported factory images and unsigned Mender artifacts that
-passed build-time format, partition, checksum, device-type, and health-script
-validation. Version 0.43.0 advances the maintained Scarthgap security metadata,
-VM kernel, and supporting layers; it requires a fresh three-target build.
+Version 0.43.0 completed clean native Yocto builds for the x86-64 VM,
+Raspberry Pi 4, and Raspberry Pi 5. Each artifact's `BUILD-MANIFEST.txt`
+records its exact source commit and tree. The VM ISO and QCOW2 passed isolated
+QEMU smoke tests covering Wayland/Weston, SSH, systemd health, mounts, and
+QCOW2 persistence across two boots. Both Pi builds exported factory images and
+unsigned Mender artifacts whose checksums, archives, device types, and Mender
+v3 structure validated successfully. No physical Pi boot is claimed.
 
-All media remains development-only. The latest fresh CVE gate still blocks
-release promotion, and production signing, backend OTA/rollback, and physical
-Pi 4/Pi 5 qualification require controlled infrastructure and hardware. Do not
-promote any build to 1.0.0 until every gate in [versioning](docs/VERSIONING.md)
-passes. See [Build](docs/BUILD.md) for the detailed record.
+All 0.43.0 media remains development-only. The fresh CVE gate denied 237 VM
+findings and 298 findings for each Pi target, so the artifacts were not signed
+or promoted. Production signing, backend OTA/rollback, and physical Pi 4/Pi 5
+qualification still require controlled infrastructure and hardware. Do not
+promote any build to 1.0.0 until every gate in
+[versioning](docs/VERSIONING.md) passes. See [Build](docs/BUILD.md) for the
+detailed record.
 
 ## License
 

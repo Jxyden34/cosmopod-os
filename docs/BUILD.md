@@ -265,25 +265,25 @@ Scarthgap is used as the first hardware baseline because its Mender Raspberry
 Pi integration is established. Qualify a full Yocto LTS migration separately;
 do not mix Wrynose layers into a Scarthgap build.
 
-## Version 0.42.0 validation record
+## Version 0.43.0 validation record
 
 Clean native Yocto builds completed for Raspberry Pi 4, Raspberry Pi 5, and
-generic x86-64 at source commit `c8a4c31c341d181497d9429944f19ad833a9872b`.
-All 8,117 VM build tasks succeeded. The VM ISO and QCOW2 passed hash/archive
-checks and isolated QEMU smoke tests for Wayland/Weston, SSH, clean systemd
-state, mounts, and persistence across two QCOW2 boots.
+generic x86-64. The exact source commit and tree are recorded in each
+artifact's `BUILD-MANIFEST.txt`. The VM completed all 8,117 tasks, and Pi 4 and
+Pi 5 each completed all 7,818 tasks.
 
-Both Pi builds exported `.img.xz` factory media and unsigned Mender v3
-artifacts. Hashes, artifact device compatibility (`cosmopod-rpi4-64` and
-`cosmopod-rpi5`), and the health-commit state script were validated. No real
+The VM ISO and QCOW2 passed strict checksum/archive checks and isolated QEMU
+smoke tests for Wayland/Weston, SSH, clean systemd state, mounts, and
+persistence across two QCOW2 boots. Both Pi builds exported `.img.xz` factory
+media and unsigned Mender v3 artifacts. Strict checksums, compressed image,
+SPDX and license archives, Mender structure, source commit, and device
+compatibility (`cosmopod-rpi4-64` and `cosmopod-rpi5`) were validated. No real
 Raspberry Pi boot has been claimed.
 
 The development artifacts are deliberately unqualified: the fresh CVE gate
-denied 296 VM findings and 263 findings for each Pi target. Production signing,
+denied 237 VM findings and 298 findings for each Pi target. Production signing,
 backend deployment at `https://kys.dpdns.org`, signed OTA commit/rollback, and
-physical hardware testing remain mandatory. Version 0.43.0 advances official
-security fixes and must be rebuilt for all three targets before its results can
-supersede this record.
+physical hardware testing remain mandatory before release promotion.
 
 ## Hardware acceptance gate
 

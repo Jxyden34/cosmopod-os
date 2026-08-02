@@ -57,6 +57,7 @@ def check_build_supply_chain() -> None:
         'kas_runner=("$host_python" -S -m kas)',
         'export DL_DIR="$downloads_dir"',
         'export SSTATE_DIR="$sstate_dir"',
+        '[[ "$original_root" != "$source_root" ]]',
     )
     for marker in required_build_controls:
         if marker not in build:
