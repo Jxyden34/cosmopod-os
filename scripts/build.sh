@@ -4,7 +4,7 @@ set -Eeuo pipefail
 KAS_VERSION=5.4
 KAS_CONTAINER_IMAGE="ghcr.io/siemens/kas/kas:5.4@sha256:11f076b79b84f57cb7d933941ff619f09a7c17e562e1643d13836d5f8d0a92f3"
 KAS_CONTAINER_SCRIPT_SHA256=9707355d1eba19e334e663ab9fcf6881ac323aed16ff7f4fd7e217f879a3894c
-YOCTO_VERSION=5.0.19
+YOCTO_VERSION=6.0
 CVE_DATABASE_MAX_AGE_SECONDS=172800
 GNU_COREUTILS_VERSION=9.7-3ubuntu2
 GNU_COREUTILS_SHA256=6b5b60a5c372b6e9d1dcfa1507317aae59bf809d4f4d6d363d3ef0a58a189137
@@ -221,7 +221,7 @@ done
 export TMPDIR="$tmp_dir"
 export PIP_CONFIG_FILE=/dev/null
 
-# Ubuntu 26.04 may provide `install` through uutils coreutils. Yocto 5.0's
+# Ubuntu 26.04 may provide `install` through uutils coreutils. Yocto's
 # native recipes require GNU install semantics. Extract the signed Ubuntu
 # archive package into the user cache rather than replacing essential host
 # packages. The exact package payload is checksum pinned.
@@ -548,7 +548,8 @@ else
     fi
 
     # Ubuntu 26.04's patched tar uses openat2 for extraction. Pseudo 1.9 from
-    # Yocto 5.0 cannot track the resulting directory fd (Yocto bug 16316).
+    # Some supported host tar implementations use openat2 in ways that Pseudo
+    # cannot track (Yocto bug 16316).
     # Always use the compatible tar already supplied by pinned buildtools.
     mkdir -p "$hosttools_dir"
     buildtools_tar="$work_dir/openembedded-core/buildtools/sysroots/x86_64-pokysdk-linux/usr/bin/tar"

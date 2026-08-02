@@ -213,12 +213,9 @@ def check_vm_image_scoping() -> None:
     ).read_text(encoding="utf-8")
     if "SRC_URI:append:genericx86-64" not in kernel_append:
         fail("Hyper-V kernel fragment must be scoped to the x86 VM")
-    for kernel_pin in (
-        'SRCREV_machine:genericx86-64 = "2baf8e92ef6ad38945005adf39342b9efb4509ec"',
-        'LINUX_VERSION:genericx86-64 = "6.6.144"',
-    ):
-        if kernel_pin not in kernel_append:
-            fail(f"VM maintained-kernel pin missing: {kernel_pin}")
+    if "SRCREV_machine:genericx86-64" in kernel_append or \
+       "LINUX_VERSION:genericx86-64" in kernel_append:
+        fail("VM kernel must follow the pinned Yocto 6.0 LTS metadata")
     for kernel_control in (
         "CONFIG_HYPERVISOR_GUEST=y",
         "CONFIG_HYPERV_NET=y",
@@ -503,12 +500,12 @@ def check_host_compatibility_patches() -> None:
         / "meta-cosmopod/recipes-graphics/virglrenderer/virglrenderer_%.bbappend",
     )
     if any(path.exists() for path in obsolete_patches):
-        fail("local graphics host patch duplicates pinned Yocto 5.0.19 metadata")
+        fail("local graphics host patch duplicates pinned Yocto 6.0 metadata")
     pseudo = (
         ROOT / "meta-cosmopod/recipes-devtools/pseudo/pseudo_%.bbappend"
     ).read_text(encoding="utf-8")
     if 'PV = ' in pseudo or 'SRCREV = ' in pseudo:
-        fail("pseudo version must come from pinned Yocto 5.0.19 metadata")
+        fail("pseudo version must come from pinned Yocto 6.0 metadata")
     pseudo_openat2 = ROOT / (
         "meta-cosmopod/recipes-devtools/pseudo/files/"
         "0001-openat2-fallback-to-enosys.patch"
