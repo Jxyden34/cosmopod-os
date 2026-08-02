@@ -485,11 +485,13 @@ def check_release_security_evidence() -> None:
     ):
         if marker not in common:
             fail(f"Yocto release evidence control missing: {marker}")
-    stable_spdx_marker = (
-        'sbom_path = d.expand("${DEPLOY_DIR_IMAGE}/${IMAGE_LINK_NAME}.spdx.json")'
-    )
-    if stable_spdx_marker not in image:
-        fail("image CVE scan must consume the stable SPDX deploy link")
+    for marker in (
+        "python do_sbom_cve_check:prepend()",
+        'stable_path = d.expand("${DEPLOY_DIR_IMAGE}/${IMAGE_LINK_NAME}.spdx.json")',
+        "os.symlink(os.path.basename(stable_target), timestamped_path)",
+    ):
+        if marker not in image:
+            fail("image CVE scan must materialize its input from the stable SPDX link")
     for marker in (
         "BLOCKING_SCORE = 7.0",
         'status in ("Unpatched", "Unknown")',
