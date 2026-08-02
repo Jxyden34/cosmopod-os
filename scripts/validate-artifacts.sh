@@ -104,6 +104,7 @@ validate_manifest() {
     grep -Fqx "artifact_name=cosmopod-os-$version-$board" BUILD-MANIFEST.txt
     grep -Fqx 'source_dirty=false' BUILD-MANIFEST.txt
     grep -Fqx 'environment_sanitized=true' BUILD-MANIFEST.txt
+    grep -Fqx 'task_network_isolation=true' BUILD-MANIFEST.txt
 
     case "$board" in
         pi4) expected_machine=raspberrypi4-64; expected_device=cosmopod-rpi4-64; expected_kas=kas/raspberrypi4.yml ;;

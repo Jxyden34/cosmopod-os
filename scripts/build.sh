@@ -16,6 +16,7 @@ engine=auto
 requested_channel=auto
 allow_dirty=false
 replace_output=false
+allow_unconfined_task_network=false
 mender_server_url=https://kys.dpdns.org
 bb_threads=${COSMOPOD_BB_NUMBER_THREADS:-6}
 make_jobs=${COSMOPOD_PARALLEL_MAKE_JOBS:-6}
@@ -26,6 +27,7 @@ usage() {
 Usage: scripts/build.sh [--build|--checkout-only] [--engine auto|native|container]
                         [--channel auto|development|release]
                         [--allow-dirty] [--replace-output]
+                        [--allow-unconfined-task-network]
                         [--mender-server-url https://HOST]
                         --board pi4|pi5|vm --version VERSION
 
@@ -45,6 +47,7 @@ while [[ $# -gt 0 ]]; do
         --version) version=${2:?missing version}; shift ;;
         --allow-dirty) allow_dirty=true ;;
         --replace-output) replace_output=true ;;
+        --allow-unconfined-task-network) allow_unconfined_task_network=true ;;
         --mender-server-url) mender_server_url=${2:?missing Mender server URL}; shift ;;
         -h|--help) usage; exit 0 ;;
         *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -307,6 +310,10 @@ case "$requested_channel" in
         output_channel=release
         ;;
 esac
+if [[ "$allow_unconfined_task_network" == true && "$output_channel" != development ]]; then
+    echo "Unconfined task networking is allowed only for development output" >&2
+    exit 1
+fi
 export_dir="$export_parent/$board-$output_channel"
 [[ "$(realpath -m -- "$export_parent")" == "$export_parent" ]] && \
     [[ "$(realpath -m -- "$export_dir")" == "$export_dir" ]] || {
@@ -371,6 +378,12 @@ local_conf_header:
     SSTATE_DIR = "\${TOPDIR}/../../sstate"
     BB_NUMBER_THREADS = "$bb_threads"
     PARALLEL_MAKE = "-j $make_jobs"
+    COSMOPOD_ALLOW_UNCONFINED_TASK_NETWORK = "$allow_unconfined_task_network"
+    python () {
+        if d.getVar("COSMOPOD_ALLOW_UNCONFINED_TASK_NETWORK") == "true":
+            for task in (d.getVar("__BBTASKS") or "").split():
+                d.setVarFlag(task, "network", "1")
+    }
 EOF
 umask "$previous_umask"
 chmod 0400 "$overlay_tmp"
@@ -547,7 +560,6 @@ else
         done
     fi
 
-    # Ubuntu 26.04's patched tar uses openat2 for extraction. Pseudo 1.9 from
     # Some supported host tar implementations use openat2 in ways that Pseudo
     # cannot track (Yocto bug 16316).
     # Always use the compatible tar already supplied by pinned buildtools.
@@ -816,6 +828,8 @@ verify_export_invariants
     printf 'build_finished_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     printf 'build_engine=%s\n' "$engine"
     printf 'environment_sanitized=true\n'
+    printf 'task_network_isolation=%s\n' \
+        "$([[ "$allow_unconfined_task_network" == true ]] && printf false || printf true)"
     printf 'kas_version=%s\n' "$KAS_VERSION"
     printf 'kas_container_image=%s\n' "$KAS_CONTAINER_IMAGE"
     printf 'kas_container_script_sha256=%s\n' "$KAS_CONTAINER_SCRIPT_SHA256"

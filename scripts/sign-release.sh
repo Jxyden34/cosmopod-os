@@ -329,6 +329,10 @@ manifest_value() {
     echo "Refusing to sign a build without environment sanitization evidence" >&2
     exit 1
 }
+[[ $(grep -Fxc 'task_network_isolation=true' "$manifest") -eq 1 ]] || {
+    echo "Refusing to sign a build without task-network isolation evidence" >&2
+    exit 1
+}
 
 manifest_version=$(manifest_value version)
 manifest_board=$(manifest_value board)
