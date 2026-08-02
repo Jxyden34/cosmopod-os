@@ -15,7 +15,7 @@ diff --git a/src/readelf.c b/src/readelf.c
 index cfb04e4..744b153 100644
 --- a/src/readelf.c
 +++ b/src/readelf.c
-@@ -7970,7 +7970,7 @@ print_debug_units (Dwfl_Module *dwflmod, Dwarf *dbg, Ebl *ebl,
+@@ -8269,7 +8269,7 @@ attr_callback (Dwarf_Attribute *attrp, void *arg)
  		    valuestr = dwarf_filesrc (files, num, NULL, NULL);
  		    if (valuestr != NULL)
  		      {
@@ -24,8 +24,8 @@ index cfb04e4..744b153 100644
  			if (filename != NULL)
  			  valuestr = filename + 1;
  		      }
-@@ -8724,7 +8724,7 @@ print_form_data (Dwarf *dbg, int form, const unsigned char *readp,
- 		 Dwarf_Off str_offsets_base)
+@@ -9033,7 +9033,7 @@ print_form_data (Dwarf *dbg, int form, const unsigned char *readp,
+ 		 Dwarf_Off str_offsets_base, FILE *out)
  {
    Dwarf_Word val;
 -  unsigned char *endp;
@@ -33,7 +33,7 @@ index cfb04e4..744b153 100644
    Elf_Data *data;
    char *str;
    switch (form)
-@@ -9216,7 +9216,7 @@ print_debug_line_section (Dwfl_Module *dwflmod __attribute__ ((unused)),
+@@ -9530,7 +9530,7 @@ print_debug_line_section (Dwfl_Module *dwflmod __attribute__ ((unused)),
  	{
  	  while (linep < lineendp && *linep != 0)
  	    {
@@ -42,7 +42,7 @@ index cfb04e4..744b153 100644
  	      if (unlikely (endp == NULL))
  		goto invalid_unit;
  
-@@ -9450,7 +9450,7 @@ print_debug_line_section (Dwfl_Module *dwflmod __attribute__ ((unused)),
+@@ -9764,7 +9764,7 @@ print_debug_line_section (Dwfl_Module *dwflmod __attribute__ ((unused)),
  		case DW_LNE_define_file:
  		  {
  		    char *fname = (char *) linep;
