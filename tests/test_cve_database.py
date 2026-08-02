@@ -23,7 +23,7 @@ class CveDatabaseTests(unittest.TestCase):
 
     def test_invalid_release_timestamp_is_rejected(self) -> None:
         with self.assertRaisesRegex(
-            ValueError,
+            CVE_DATABASE.argparse.ArgumentTypeError,
             "timestamp must be UTC",
         ):
             CVE_DATABASE.parse_utc("not-a-timestamp")
