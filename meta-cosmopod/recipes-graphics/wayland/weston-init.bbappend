@@ -7,5 +7,5 @@ SRC_URI:append = " file://weston.ini"
 USERADD_PARAM:${PN} = "--system --home /home/weston --shell /sbin/nologin --user-group -G video,input,render,wayland weston"
 
 do_install:append() {
-    install -m 0644 ${WORKDIR}/weston.ini ${D}${sysconfdir}/xdg/weston/weston.ini
+    install -m 0644 ${UNPACKDIR}/weston.ini ${D}${sysconfdir}/xdg/weston/weston.ini
 }

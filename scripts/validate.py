@@ -132,6 +132,10 @@ def check_distro_identity() -> None:
 
 
 def check_vm_image_scoping() -> None:
+    vm_recipe_path = ROOT / 'meta-cosmopod/recipes-core/cosmopod-vm-config/cosmopod-vm-config_1.0.bb'
+    vm_recipe_text = vm_recipe_path.read_text(encoding='utf-8')
+    if '${WORKDIR}/' in vm_recipe_text or '${UNPACKDIR}/cosmopod-seatd.service' not in vm_recipe_text:
+        fail('VM recipe must install Yocto 6 local files from UNPACKDIR')
     text = (ROOT / "kas/vm-x86_64.yml").read_text(encoding="utf-8")
     for variable in ("IMAGE_FSTYPES:append", "IMAGE_INSTALL:append"):
         if re.search(rf"^\s+{re.escape(variable)}\s*=", text, re.MULTILINE):
