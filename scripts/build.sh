@@ -710,8 +710,6 @@ cve_database="$tmp_dir/deploy/sbom-cve-check/databases"
     echo "Yocto SBOM CVE database directory missing or symlinked: $cve_database" >&2
     exit 1
 }
-cve_gate_checked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-
 spdx_source_name=${spdx_source##*/}
 tar -C "$deploy_dir" --sort=name --mtime=@0 --owner=0 --group=0 \
     --numeric-owner -cf - "$spdx_source_name" | \
@@ -743,6 +741,7 @@ for required_license_entry in \
 done
 rm -f -- "$spdx_entries" "$license_entries" "$normalized_license_entries"
 cp -L -- "$cve_source" "$staging_dir/$cve_export"
+cve_gate_checked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 python3 "$source_root/scripts/inspect-cve-database.py" \
     --database "$cve_database" \
     --build-started-at "$build_started_utc" \
