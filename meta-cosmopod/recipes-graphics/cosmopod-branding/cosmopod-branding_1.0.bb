@@ -4,8 +4,6 @@ LICENSE = "CLOSED"
 
 SRC_URI = "file://cosmopod-logo.png"
 
-S = "${WORKDIR}"
-
 do_install() {
     install -d ${D}${datadir}/backgrounds
     install -m 0644 ${WORKDIR}/cosmopod-logo.png \
