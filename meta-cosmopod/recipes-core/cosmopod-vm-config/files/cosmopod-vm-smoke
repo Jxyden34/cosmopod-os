@@ -350,10 +350,35 @@ else
 fi
 rm -f "$wayland_info"
 
+# A running compositor and protocol client do not necessarily draw visible
+# pixels (the normal desktop can be a uniform background). Keep a known Weston
+# example on screen while the host captures its QMP screenshot, so that image
+# validation proves an actual Wayland render path rather than a blank frame.
+visual_client_pid=
+if command -v weston-simple-shm >/dev/null 2>&1; then
+    timeout 20 sudo -n -u cosmopod -- env \
+        XDG_RUNTIME_DIR=/run/user/1000 \
+        WAYLAND_DISPLAY="${wayland_socket##*/}" \
+        weston-simple-shm >/run/cosmopod-smoke-weston-simple-shm.log 2>&1 &
+    visual_client_pid=$!
+    sleep 2
+    if kill -0 "$visual_client_pid" 2>/dev/null; then
+        pass_check wayland.visual-client
+    else
+        fail_check wayland.visual-client exited
+    fi
+else
+    fail_check wayland.visual-client missing-weston-simple-shm
+fi
+
 if [ "$failures" -eq 0 ]; then
     emit "COSMOPOD_SMOKE_SCREENSHOT_READY"
 fi
 sleep 12
+if [ -n "$visual_client_pid" ]; then
+    kill "$visual_client_pid" 2>/dev/null || true
+    wait "$visual_client_pid" 2>/dev/null || true
+fi
 stable_socket=$(find /run/user/1000 -maxdepth 1 -type s -name 'wayland-*' -print -quit 2>/dev/null || true)
 if systemctl is-active --quiet weston.service && \
     pgrep -u 1000 -x weston >/dev/null 2>&1 && \
