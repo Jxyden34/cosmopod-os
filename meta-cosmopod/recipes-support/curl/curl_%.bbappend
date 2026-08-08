@@ -8,6 +8,7 @@
 # harder to compare and could silently alter the product surface.
 PV = "8.21.0"
 SRC_URI:remove = " \
+    file://no-test-timeout.patch \
     file://CVE-2026-6276.patch \
     file://CVE-2026-5773.patch \
     file://mbedtls.patch \
