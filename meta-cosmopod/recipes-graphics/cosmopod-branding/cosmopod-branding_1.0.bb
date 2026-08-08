@@ -6,7 +6,7 @@ SRC_URI = "file://cosmopod-logo.png"
 
 do_install() {
     install -d ${D}${datadir}/backgrounds
-    install -m 0644 ${WORKDIR}/cosmopod-logo.png \
+    install -m 0644 ${UNPACKDIR}/cosmopod-logo.png \
         ${D}${datadir}/backgrounds/cosmopod-logo.png
 }
 
