@@ -49,6 +49,14 @@ emit_weston_diagnostics() {
         cat /run/user/1000/weston.log >&3 2>&3 || true
     fi
     if ! systemctl is-active --quiet weston.service; then
+        emit "COSMOPOD_SEATD_LOG_BEGIN"
+        systemctl show cosmopod-seatd.service \
+            -p ActiveState -p SubState -p Result -p MainPID --no-pager >&3 2>&3 || true
+        journalctl -b -u cosmopod-seatd.service --no-pager -o short-monotonic \
+            >&3 2>&3 || true
+        stat -c '%F %U:%G:%a %n' /run/seatd.sock >&3 2>&3 || true
+        getent group wayland >&3 2>&3 || true
+        emit "COSMOPOD_SEATD_LOG_END"
         ls -l /dev/dri >&3 2>&3 || true
         loginctl >&3 2>&3 || true
         id cosmopod >&3 2>&3 || true
