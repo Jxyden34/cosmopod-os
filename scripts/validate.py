@@ -200,7 +200,7 @@ def check_vm_image_scoping() -> None:
         "cosmopod-seatd.service"
     ).read_text(encoding="utf-8")
     for seatd_control in (
-        "ExecStart=/usr/bin/seatd -g wayland",
+        "ExecStart=/usr/bin/seatd -g seat",
         "Environment=SEATD_VTBOUND=0",
         "while [ ! -S /run/seatd.sock ]",
         "TimeoutStartSec=10",
@@ -214,6 +214,11 @@ def check_vm_image_scoping() -> None:
         fail("VM Weston must require its seat broker")
     if "Environment=LIBSEAT_BACKEND=seatd" not in weston_vm:
         fail("VM Weston must use the ready seatd backend")
+    weston_init = (
+        ROOT / "meta-cosmopod/recipes-graphics/wayland/weston-init.bbappend"
+    ).read_text(encoding="utf-8")
+    if "-G video,input,render,seat,wayland weston" not in weston_init:
+        fail("Weston service account must join the seatd socket group")
     kernel_append = (
         ROOT / "meta-cosmopod/recipes-kernel/linux/linux-yocto_%.bbappend"
     ).read_text(encoding="utf-8")

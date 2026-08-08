@@ -7,7 +7,7 @@ ConditionPathExists=/dev/tty0
 [Service]
 Type=simple
 Environment=SEATD_VTBOUND=0
-ExecStart=/usr/bin/seatd -g wayland -l error
+ExecStart=/usr/bin/seatd -g seat -l error
 ExecStartPost=/bin/sh -c 'while [ ! -S /run/seatd.sock ]; do sleep 0.05; done'
 TimeoutStartSec=10
 Restart=on-failure
