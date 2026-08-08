@@ -11,6 +11,7 @@ IMAGE_INSTALL += " \
     packagegroup-cosmopod-base \
     packagegroup-cosmopod-wayland \
     packagegroup-cosmopod-tools \
+    cosmopod-branding \
     cosmopod-config \
 "
 
