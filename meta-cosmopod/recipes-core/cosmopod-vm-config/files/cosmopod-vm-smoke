@@ -287,6 +287,22 @@ else
     fail_check weston.uid1000 no-process
 fi
 
+# Verify the branded desktop contract from inside the booted guest.  The host
+# separately validates the rendered QMP frame; this confirms the frame is
+# driven by the official asset and Weston configuration carried by the image.
+branding_logo=/usr/share/backgrounds/cosmopod-logo.png
+branding_logo_sha256=f67bc42cad5ded48a8ad22d412589682912c5d39cd625879fa18f80c7420bda8
+weston_config=/etc/xdg/weston/weston.ini
+branding_logo_actual=$(sha256sum "$branding_logo" 2>/dev/null | awk '{print $1}')
+if [ "$branding_logo_actual" = "$branding_logo_sha256" ] && \
+    grep -Fqx "background-image=$branding_logo" "$weston_config" 2>/dev/null && \
+    grep -Fqx 'background-type=scale' "$weston_config" 2>/dev/null
+then
+    pass_check branding.weston-background
+else
+    fail_check branding.weston-background invalid-or-missing
+fi
+
 wayland_socket=$(find /run/user/1000 -maxdepth 1 -type s -name 'wayland-*' -print -quit 2>/dev/null || true)
 if [ -n "$wayland_socket" ]; then
     pass_check weston.socket
