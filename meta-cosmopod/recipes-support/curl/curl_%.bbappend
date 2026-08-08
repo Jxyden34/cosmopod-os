@@ -19,3 +19,7 @@ SRC_URI:remove = " \
     file://CVE-2026-7168.patch \
 "
 SRC_URI[sha256sum] = "aa1b66a70eace83dc624508745646c08ae561de512ab403adffb93ac87fc72e6"
+
+# curl 8.21 removed librtmp support and its configure switch.  Retain the
+# previous product feature set by removing the now-invalid disabled switch.
+EXTRA_OECONF:remove = "--without-librtmp"
