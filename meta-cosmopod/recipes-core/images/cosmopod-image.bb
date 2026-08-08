@@ -20,7 +20,7 @@ IMAGE_LINGUAS = "en-gb"
 # session starts as this user. Sudo policy is installed by cosmopod-config.
 EXTRA_USERS_PARAMS = " \
     groupadd -f wheel; \
-    useradd -u 1000 -m -d /home/cosmopod -s /bin/bash -G wheel,audio,video,input,render,wayland,dialout cosmopod; \
+    useradd -u 1000 -m -d /home/cosmopod -s /bin/bash -G wheel,audio,video,input,render,seat,wayland,dialout cosmopod; \
     usermod -L root; \
     usermod -L cosmopod; \
 "

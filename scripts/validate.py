@@ -219,6 +219,11 @@ def check_vm_image_scoping() -> None:
     ).read_text(encoding="utf-8")
     if "-G video,input,render,seat,wayland weston" not in weston_init:
         fail("Weston service account must join the seatd socket group")
+    image_recipe = (
+        ROOT / "meta-cosmopod/recipes-core/images/cosmopod-image.bb"
+    ).read_text(encoding="utf-8")
+    if "-G wheel,audio,video,input,render,seat,wayland,dialout cosmopod" not in image_recipe:
+        fail("Cosmopod graphical session account must join the seatd socket group")
     kernel_append = (
         ROOT / "meta-cosmopod/recipes-kernel/linux/linux-yocto_%.bbappend"
     ).read_text(encoding="utf-8")
