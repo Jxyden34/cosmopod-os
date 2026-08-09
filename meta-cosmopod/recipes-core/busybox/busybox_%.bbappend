@@ -18,3 +18,10 @@ SRC_URI:remove = " \
     "
 
 SRC_URI:append = " file://CVE-2026-38754.patch"
+
+# BusyBox 1.38 enables vmstat by default. Cosmopod ships the procps vmstat
+# implementation, so keep the applet disabled and avoid an alternatives
+# collision during rootfs construction.
+do_prepare_config:append () {
+    sed -i -e 's/^CONFIG_VMSTAT=y/# CONFIG_VMSTAT is not set/' ${S}/.config
+}
