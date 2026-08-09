@@ -68,22 +68,30 @@ native_tool() {
         -path "*/usr/bin/$tool" -print -quit
 }
 
-image_os_release() {
-    local target candidate
+image_rootfs() {
+    local machine artifact candidate resolved
     case "$board" in
-        pi4) target=raspberrypi4_64-poky-linux ;;
-        pi5) target=raspberrypi5-poky-linux ;;
-        vm) target=genericx86_64-poky-linux ;;
+        pi4)
+            machine=raspberrypi4-64
+            artifact=cosmopod-rpi4-64
+            ;;
+        pi5)
+            machine=raspberrypi5
+            artifact=cosmopod-rpi5
+            ;;
+        *)
+            echo "No deployed ext4 rootfs is defined for $board" >&2
+            return 1
+            ;;
     esac
 
-    for candidate in "$tmp_dir/work/$target/cosmopod-image"/*/rootfs/etc/os-release; do
-        if [[ -f "$candidate" && ! -L "$candidate" ]]; then
-            printf '%s\n' "$candidate"
-            return 0
-        fi
-    done
-    echo "Missing built os-release for $board under $tmp_dir" >&2
-    return 1
+    candidate="$tmp_dir/deploy/images/$machine/cosmopod-image-$artifact.ext4"
+    resolved=$(readlink -f -- "$candidate")
+    [[ "$resolved" == "$tmp_dir/deploy/images/$machine/"* && -f "$resolved" ]] || {
+        echo "Missing deployed rootfs for $board: $candidate" >&2
+        return 1
+    }
+    printf '%s\n' "$resolved"
 }
 
 validate_checksum_index() {
@@ -466,7 +474,7 @@ partition_value() {
 }
 
 validate_pi() {
-    local image mender raw device_type artifact_tool os_release metadata
+    local image mender raw rootfs device_type artifact_tool os_release metadata
     local signed signed_record signed_checksum signed_metadata public
     local approved_build_index approved_unsigned
     image="Cosmopod-OS-$version-$board.img.xz"
@@ -477,7 +485,7 @@ validate_pi() {
         device_type=cosmopod-rpi5
     fi
 
-    for tool in xz file fdisk sfdisk partx blkid; do require "$tool"; done
+    for tool in xz file fdisk sfdisk partx blkid debugfs; do require "$tool"; done
     xz --test --verbose "$image"
     file "$image" "$mender"
 
@@ -540,7 +548,11 @@ validate_pi() {
         grep -Fqx 'release_index_authenticated=true' "$signed_record"
     fi
 
-    os_release=$(image_os_release)
+    rootfs=$(image_rootfs)
+    os_release=$(mktemp "${COSMOPOD_BUILD_ROOT:-"$HOME/.cache/cosmopod-os"}/$board-os-release.XXXXXX")
+    temp_files+=("$os_release")
+    debugfs -R 'cat /usr/lib/os-release' "$rootfs" > "$os_release" 2>/dev/null
+    [[ -s "$os_release" ]]
     grep -q '^ID=cosmopod$' "$os_release"
     grep -q '^NAME="Cosmopod OS"$' "$os_release"
     grep -q "^VERSION_ID=$version$" "$os_release"
@@ -621,7 +633,9 @@ validate_vm() {
     grep -Fxiq '/efi.img' <<<"$listing"
     grep -Fxiq '/rootfs.img' <<<"$listing"
 
-    os_release=$(image_os_release)
+    os_release=$(find "$tmp_dir/work/genericx86_64-poky-linux/cosmopod-image" \
+        -path '*/rootfs/etc/os-release' -type f -print -quit)
+    [[ -n "$os_release" ]]
     grep -q '^ID=cosmopod$' "$os_release"
     grep -q '^NAME="Cosmopod OS"$' "$os_release"
     grep -q "^VERSION_ID=$version$" "$os_release"
