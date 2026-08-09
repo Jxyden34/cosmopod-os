@@ -24,6 +24,7 @@ SRC_URI:append = " file://CVE-2026-38754.patch"
 # collision during rootfs construction.
 do_configure:append () {
     sed -i -e 's/^CONFIG_VMSTAT=y/# CONFIG_VMSTAT is not set/' ${S}/.config
+    sed -i -e 's/^CONFIG_LSBLK=y/# CONFIG_LSBLK is not set/' ${S}/.config
     yes '' | oe_runmake oldconfig
     cp ${S}/.config ${S}/.config.orig
     cp ${S}/include/autoconf.h ${S}/include/autoconf.h.orig
