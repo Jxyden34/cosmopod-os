@@ -49,6 +49,14 @@ emit_weston_diagnostics() {
         cat /run/user/1000/weston.log >&3 2>&3 || true
     fi
     if ! systemctl is-active --quiet weston.service; then
+        emit "COSMOPOD_SEATD_LOG_BEGIN"
+        systemctl show cosmopod-seatd.service \
+            -p ActiveState -p SubState -p Result -p MainPID --no-pager >&3 2>&3 || true
+        journalctl -b -u cosmopod-seatd.service --no-pager -o short-monotonic \
+            >&3 2>&3 || true
+        stat -c '%F %U:%G:%a %n' /run/seatd.sock >&3 2>&3 || true
+        getent group wayland >&3 2>&3 || true
+        emit "COSMOPOD_SEATD_LOG_END"
         ls -l /dev/dri >&3 2>&3 || true
         loginctl >&3 2>&3 || true
         id cosmopod >&3 2>&3 || true
@@ -279,6 +287,22 @@ else
     fail_check weston.uid1000 no-process
 fi
 
+# Verify the branded desktop contract from inside the booted guest.  The host
+# separately validates the rendered QMP frame; this confirms the frame is
+# driven by the official asset and Weston configuration carried by the image.
+branding_logo=/usr/share/backgrounds/cosmopod-logo.png
+branding_logo_sha256=f67bc42cad5ded48a8ad22d412589682912c5d39cd625879fa18f80c7420bda8
+weston_config=/etc/xdg/weston/weston.ini
+branding_logo_actual=$(sha256sum "$branding_logo" 2>/dev/null | awk '{print $1}')
+if [ "$branding_logo_actual" = "$branding_logo_sha256" ] && \
+    grep -Fqx "background-image=$branding_logo" "$weston_config" 2>/dev/null && \
+    grep -Fqx 'background-type=scale' "$weston_config" 2>/dev/null
+then
+    pass_check branding.weston-background
+else
+    fail_check branding.weston-background invalid-or-missing
+fi
+
 wayland_socket=$(find /run/user/1000 -maxdepth 1 -type s -name 'wayland-*' -print -quit 2>/dev/null || true)
 if [ -n "$wayland_socket" ]; then
     pass_check weston.socket
@@ -342,10 +366,35 @@ else
 fi
 rm -f "$wayland_info"
 
+# A running compositor and protocol client do not necessarily draw visible
+# pixels (the normal desktop can be a uniform background). Keep a known Weston
+# example on screen while the host captures its QMP screenshot, so that image
+# validation proves an actual Wayland render path rather than a blank frame.
+visual_client_pid=
+if command -v weston-simple-shm >/dev/null 2>&1; then
+    timeout 20 sudo -n -u cosmopod -- env \
+        XDG_RUNTIME_DIR=/run/user/1000 \
+        WAYLAND_DISPLAY="${wayland_socket##*/}" \
+        weston-simple-shm >/run/cosmopod-smoke-weston-simple-shm.log 2>&1 &
+    visual_client_pid=$!
+    sleep 2
+    if kill -0 "$visual_client_pid" 2>/dev/null; then
+        pass_check wayland.visual-client
+    else
+        fail_check wayland.visual-client exited
+    fi
+else
+    fail_check wayland.visual-client missing-weston-simple-shm
+fi
+
 if [ "$failures" -eq 0 ]; then
     emit "COSMOPOD_SMOKE_SCREENSHOT_READY"
 fi
 sleep 12
+if [ -n "$visual_client_pid" ]; then
+    kill "$visual_client_pid" 2>/dev/null || true
+    wait "$visual_client_pid" 2>/dev/null || true
+fi
 stable_socket=$(find /run/user/1000 -maxdepth 1 -type s -name 'wayland-*' -print -quit 2>/dev/null || true)
 if systemctl is-active --quiet weston.service && \
     pgrep -u 1000 -x weston >/dev/null 2>&1 && \

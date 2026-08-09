@@ -27,26 +27,26 @@ do_install() {
     # built root filesystem before cosmopod-vm-data.service starts.
     install -d -m 0755 ${D}/data
     install -d ${D}${libexecdir}
-    install -m 0755 ${WORKDIR}/cosmopod-vm-data ${D}${libexecdir}/
-    install -m 0755 ${WORKDIR}/cosmopod-vm-remount-condition ${D}${libexecdir}/
-    install -m 0755 ${WORKDIR}/cosmopod-vm-smoke-condition ${D}${libexecdir}/
-    install -m 0755 ${WORKDIR}/cosmopod-vm-smoke ${D}${libexecdir}/
+    install -m 0755 ${UNPACKDIR}/cosmopod-vm-data ${D}${libexecdir}/
+    install -m 0755 ${UNPACKDIR}/cosmopod-vm-remount-condition ${D}${libexecdir}/
+    install -m 0755 ${UNPACKDIR}/cosmopod-vm-smoke-condition ${D}${libexecdir}/
+    install -m 0755 ${UNPACKDIR}/cosmopod-vm-smoke ${D}${libexecdir}/
 
     install -d ${D}${systemd_system_unitdir}
-    install -m 0644 ${WORKDIR}/cosmopod-seatd.service ${D}${systemd_system_unitdir}/
-    install -m 0644 ${WORKDIR}/cosmopod-vm-data.service ${D}${systemd_system_unitdir}/
-    install -m 0644 ${WORKDIR}/cosmopod-vm-smoke.service ${D}${systemd_system_unitdir}/
+    install -m 0644 ${UNPACKDIR}/cosmopod-seatd.service ${D}${systemd_system_unitdir}/
+    install -m 0644 ${UNPACKDIR}/cosmopod-vm-data.service ${D}${systemd_system_unitdir}/
+    install -m 0644 ${UNPACKDIR}/cosmopod-vm-smoke.service ${D}${systemd_system_unitdir}/
 
     install -d ${D}${sysconfdir}/systemd/system/cosmopod-persist.service.d
-    install -m 0644 ${WORKDIR}/cosmopod-persist-vm.conf \
+    install -m 0644 ${UNPACKDIR}/cosmopod-persist-vm.conf \
         ${D}${sysconfdir}/systemd/system/cosmopod-persist.service.d/vm.conf
 
     install -d ${D}${sysconfdir}/systemd/system/systemd-remount-fs.service.d
-    install -m 0644 ${WORKDIR}/cosmopod-remount-vm.conf \
+    install -m 0644 ${UNPACKDIR}/cosmopod-remount-vm.conf \
         ${D}${sysconfdir}/systemd/system/systemd-remount-fs.service.d/cosmopod-vm.conf
 
     install -d ${D}${sysconfdir}/systemd/system/weston.service.d
-    install -m 0644 ${WORKDIR}/cosmopod-weston-vm.conf \
+    install -m 0644 ${UNPACKDIR}/cosmopod-weston-vm.conf \
         ${D}${sysconfdir}/systemd/system/weston.service.d/vm.conf
 }
 

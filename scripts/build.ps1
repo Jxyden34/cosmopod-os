@@ -17,6 +17,8 @@ param(
 
     [switch]$ReplaceOutput,
 
+    [switch]$AllowUnconfinedTaskNetwork,
+
     [ValidatePattern('^https://[A-Za-z0-9][A-Za-z0-9.-]*(?::[0-9]{1,5})?$')]
     [string]$MenderServerUrl = 'https://kys.dpdns.org'
 )
@@ -46,6 +48,7 @@ $arguments = @(
 )
 if ($AllowDirty) { $arguments += '--allow-dirty' }
 if ($ReplaceOutput) { $arguments += '--replace-output' }
+if ($AllowUnconfinedTaskNetwork) { $arguments += '--allow-unconfined-task-network' }
 
 Write-Host "Cosmopod OS: board=$Board version=$Version engine=$Engine channel=$Channel mender=$MenderServerUrl"
 & wsl.exe -d Ubuntu -- bash "$wslProject/scripts/build.sh" @arguments

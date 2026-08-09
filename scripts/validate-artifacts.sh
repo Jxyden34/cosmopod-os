@@ -2,11 +2,12 @@
 set -Eeuo pipefail
 
 usage() {
-    echo "Usage: scripts/validate-artifacts.sh {pi4|pi5|vm} [VERSION]" >&2
+    echo "Usage: scripts/validate-artifacts.sh {pi4|pi5|vm} [VERSION] [--channel development|release]" >&2
 }
 
-[[ $# -ge 1 && $# -le 2 ]] || { usage; exit 2; }
+[[ $# -ge 1 && $# -le 4 ]] || { usage; exit 2; }
 board=$1
+shift
 case "$board" in
     pi4|pi5|vm) ;;
     *) usage; exit 2 ;;
@@ -16,9 +17,35 @@ script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 root=$(cd -- "$script_dir/.." && pwd -P)
 # shellcheck source=release-common.sh
 source "$script_dir/release-common.sh"
-version=${2:-$(<"$root/VERSION")}
-out_dir="$root/out/$version/$board-release"
-work_dir=${COSMOPOD_BUILD_ROOT:-"$HOME/.cache/cosmopod-os"}/work-$board
+version=$(<"$root/VERSION")
+channel=release
+version_supplied=false
+while (($#)); do
+    case "$1" in
+        --channel)
+            [[ $# -ge 2 ]] || { usage; exit 2; }
+            channel=$2
+            shift 2
+            ;;
+        development|release)
+            channel=$1
+            shift
+            ;;
+        *)
+            [[ "$version_supplied" == false ]] || { usage; exit 2; }
+            version=$1
+            version_supplied=true
+            shift
+            ;;
+    esac
+done
+case "$channel" in
+    development|release) ;;
+    *) usage; exit 2 ;;
+esac
+out_dir="$root/out/$version/$board-$channel"
+build_root=${COSMOPOD_BUILD_ROOT:-"$HOME/.cache/cosmopod-os"}
+tmp_dir="$build_root/tmp"
 temp_files=()
 
 cleanup() {
@@ -33,6 +60,38 @@ cd "$out_dir"
 
 require() {
     command -v "$1" >/dev/null || { echo "Missing validation tool: $1" >&2; exit 1; }
+}
+
+native_tool() {
+    local tool=$1
+    find "$tmp_dir/work/x86_64-linux" -type f -executable \
+        -path "*/usr/bin/$tool" -print -quit
+}
+
+image_rootfs() {
+    local machine artifact candidate resolved
+    case "$board" in
+        pi4)
+            machine=raspberrypi4-64
+            artifact=cosmopod-rpi4-64
+            ;;
+        pi5)
+            machine=raspberrypi5
+            artifact=cosmopod-rpi5
+            ;;
+        *)
+            echo "No deployed ext4 rootfs is defined for $board" >&2
+            return 1
+            ;;
+    esac
+
+    candidate="$tmp_dir/deploy/images/$machine/cosmopod-image-$artifact.ext4"
+    resolved=$(readlink -f -- "$candidate")
+    [[ "$resolved" == "$tmp_dir/deploy/images/$machine/"* && -f "$resolved" ]] || {
+        echo "Missing deployed rootfs for $board: $candidate" >&2
+        return 1
+    }
+    printf '%s\n' "$resolved"
 }
 
 validate_checksum_index() {
@@ -104,6 +163,7 @@ validate_manifest() {
     grep -Fqx "artifact_name=cosmopod-os-$version-$board" BUILD-MANIFEST.txt
     grep -Fqx 'source_dirty=false' BUILD-MANIFEST.txt
     grep -Fqx 'environment_sanitized=true' BUILD-MANIFEST.txt
+    grep -Fqx 'task_network_isolation=true' BUILD-MANIFEST.txt
 
     case "$board" in
         pi4) expected_machine=raspberrypi4-64; expected_device=cosmopod-rpi4-64; expected_kas=kas/raspberrypi4.yml ;;
@@ -311,6 +371,7 @@ local_conf_header:
     SSTATE_DIR = "\${TOPDIR}/../../sstate"
     BB_NUMBER_THREADS = "$bb_number_threads"
     PARALLEL_MAKE = "-j $parallel_make_jobs"
+    COSMOPOD_ALLOW_UNCONFINED_TASK_NETWORK = "false"
 EOF
 )
     [[ "$(<"$out_dir/$kas_overlay")" == "$expected_overlay_text" ]] || {
@@ -350,7 +411,16 @@ EOF
         echo "Extracted license manifest is empty" >&2
         exit 1
     }
-    [[ $(grep -Fxc 'format=cosmopod-cve-gate-v3' "$out_dir/$cve_gate") -eq 1 &&
+    if [[ "$channel" == release ]]; then
+        cve_decision=PASS
+    else
+        cve_decision=$(sed -n 's/^decision=//p' "$out_dir/$cve_gate")
+        [[ "$cve_decision" == PASS || "$cve_decision" == FAIL ]] || {
+            echo "Development CVE gate contains an invalid decision" >&2
+            exit 1
+        }
+    fi
+    [[ $(grep -Fxc 'format=cosmopod-cve-gate-v4' "$out_dir/$cve_gate") -eq 1 &&
        $(grep -Fxc "as_of=$cve_gate_as_of" "$out_dir/$cve_gate") -eq 1 &&
        $(grep -Fxc "evaluated_at=$cve_gate_checked_at" "$out_dir/$cve_gate") -eq 1 &&
        $(grep -Fxc "report_sha256=$(sha256sum "$out_dir/$cve_report" | awk '{print $1}')" "$out_dir/$cve_gate") -eq 1 &&
@@ -363,13 +433,14 @@ EOF
        $(grep -Fxc "database_max_age_seconds=$cve_database_max_age_seconds" "$out_dir/$cve_gate") -eq 1 &&
        $(grep -Fxc 'database_fresh=true' "$out_dir/$cve_gate") -eq 1 &&
        $(grep -Fxc 'coverage_complete=true' "$out_dir/$cve_gate") -eq 1 &&
-       $(grep -Fxc 'decision=PASS' "$out_dir/$cve_gate") -eq 1 ]] || {
+       $(grep -Fxc "decision=$cve_decision" "$out_dir/$cve_gate") -eq 1 ]] || {
         echo "Recorded CVE gate evidence is invalid or did not pass" >&2
         exit 1
     }
 
     replay=$(mktemp "${COSMOPOD_BUILD_ROOT:-"$HOME/.cache/cosmopod-os"}/$board-cve-gate.XXXXXX.txt")
     temp_files+=("$replay")
+    set +e
     python3 "$root/scripts/check-cve-report.py" \
         --report "$out_dir/$cve_report" \
         --waivers "$root/security/cve-waivers.json" \
@@ -378,6 +449,15 @@ EOF
         --verification-at "$cve_gate_checked_at" \
         --as-of "$cve_gate_as_of" \
         --output "$replay" >/dev/null
+    replay_status=$?
+    set -e
+    if ((replay_status != 0)); then
+        [[ "$channel" == development && "$cve_decision" == FAIL &&
+           "$replay_status" -eq 1 ]] || {
+            echo "CVE gate replay failed" >&2
+            exit 1
+        }
+    fi
     cmp -s -- "$out_dir/$cve_gate" "$replay" || {
         echo "Recorded CVE gate evidence does not reproduce from trusted inputs" >&2
         exit 1
@@ -393,7 +473,7 @@ partition_value() {
 }
 
 validate_pi() {
-    local image mender raw device_type artifact_tool os_release metadata
+    local image mender raw rootfs device_type artifact_tool os_release metadata
     local signed signed_record signed_checksum signed_metadata public
     local approved_build_index approved_unsigned
     image="Cosmopod-OS-$version-$board.img.xz"
@@ -404,7 +484,7 @@ validate_pi() {
         device_type=cosmopod-rpi5
     fi
 
-    for tool in xz file fdisk sfdisk partx blkid; do require "$tool"; done
+    for tool in xz file fdisk sfdisk partx blkid debugfs; do require "$tool"; done
     xz --test --verbose "$image"
     file "$image" "$mender"
 
@@ -425,7 +505,9 @@ validate_pi() {
     [[ $(partition_value "$raw" 4 TYPE) == ext4 ]]
     [[ $(partition_value "$raw" 4 LABEL) == data ]]
 
-    artifact_tool=${MENDER_ARTIFACT:-"$work_dir/build/tmp/sysroots-components/x86_64/mender-artifact-native/usr/bin/mender-artifact"}
+    artifact_tool=${MENDER_ARTIFACT:-$(find "$tmp_dir/work/x86_64-linux/mender-artifact-native" \
+        -type f -executable \( -path '*/build/bin/mender-artifact' -o -path '*/usr/bin/mender-artifact' \) \
+        -print -quit)}
     [[ -x "$artifact_tool" ]] || { echo "Missing mender-artifact: $artifact_tool" >&2; exit 1; }
     "$artifact_tool" validate "$mender"
     metadata=$("$artifact_tool" read "$mender")
@@ -465,9 +547,11 @@ validate_pi() {
         grep -Fqx 'release_index_authenticated=true' "$signed_record"
     fi
 
-    os_release=$(find "$work_dir/build/tmp/work" -maxdepth 6 \
-        -path '*/cosmopod-image/*/rootfs/etc/os-release' -print -quit)
-    [[ -n "$os_release" ]]
+    rootfs=$(image_rootfs)
+    os_release=$(mktemp "${COSMOPOD_BUILD_ROOT:-"$HOME/.cache/cosmopod-os"}/$board-os-release.XXXXXX")
+    temp_files+=("$os_release")
+    debugfs -R 'cat /usr/lib/os-release' "$rootfs" > "$os_release" 2>/dev/null
+    [[ -s "$os_release" ]]
     grep -q '^ID=cosmopod$' "$os_release"
     grep -q '^NAME="Cosmopod OS"$' "$os_release"
     grep -q "^VERSION_ID=$version$" "$os_release"
@@ -494,14 +578,12 @@ validate_vm() {
     }
     fdisk -l "$iso"
 
-    qemu_img=${QEMU_IMG:-$(find "$work_dir/build/tmp/sysroots-components/x86_64" \
-        -path '*/usr/bin/qemu-img' -type f -print -quit)}
-    isoinfo=${ISOINFO:-$(find "$work_dir/build/tmp/sysroots-components/x86_64" \
-        -path '*/usr/bin/isoinfo' -type f -print -quit)}
+    qemu_img=${QEMU_IMG:-$(native_tool qemu-img)}
+    isoinfo=${ISOINFO:-$(native_tool isoinfo)}
     [[ -x "$qemu_img" ]] || { echo "Missing qemu-img validator" >&2; exit 1; }
     [[ -x "$isoinfo" ]] || { echo "Missing isoinfo validator" >&2; exit 1; }
 
-    kernel_config="$work_dir/build/tmp/work-shared/genericx86-64/kernel-build-artifacts/.config"
+    kernel_config="$tmp_dir/work-shared/genericx86-64/kernel-build-artifacts/.config"
     [[ -s "$kernel_config" ]] || {
         echo "Missing final VM kernel configuration: $kernel_config" >&2
         exit 1
@@ -550,8 +632,8 @@ validate_vm() {
     grep -Fxiq '/efi.img' <<<"$listing"
     grep -Fxiq '/rootfs.img' <<<"$listing"
 
-    os_release=$(find "$work_dir/build/tmp/work" -maxdepth 6 \
-        -path '*/cosmopod-image/*/rootfs/etc/os-release' -print -quit)
+    os_release=$(find "$tmp_dir/work/genericx86_64-poky-linux/cosmopod-image" \
+        -path '*/rootfs/etc/os-release' -type f -print -quit)
     [[ -n "$os_release" ]]
     grep -q '^ID=cosmopod$' "$os_release"
     grep -q '^NAME="Cosmopod OS"$' "$os_release"
@@ -568,4 +650,8 @@ else
     validate_pi
 fi
 
-echo "PASS Cosmopod OS $version $board artifact validation"
+if [[ "$channel" == release ]]; then
+    echo "PASS Cosmopod OS $version $board release artifact validation"
+else
+    echo "PASS Cosmopod OS $version $board development artifact integrity validation (CVE decision: $cve_decision; not release-qualified)"
+fi

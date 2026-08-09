@@ -7,7 +7,7 @@ SRC_URI = "file://60-cosmopod-watchdog.conf"
 
 do_install() {
     install -d ${D}${sysconfdir}/systemd/system.conf.d
-    install -m 0644 ${WORKDIR}/60-cosmopod-watchdog.conf \
+    install -m 0644 ${UNPACKDIR}/60-cosmopod-watchdog.conf \
         ${D}${sysconfdir}/systemd/system.conf.d/60-cosmopod-watchdog.conf
 
     install -d ${D}${datadir}/cosmopod

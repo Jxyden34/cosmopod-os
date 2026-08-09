@@ -4,7 +4,7 @@ set -Eeuo pipefail
 KAS_VERSION=5.4
 KAS_CONTAINER_IMAGE="ghcr.io/siemens/kas/kas:5.4@sha256:11f076b79b84f57cb7d933941ff619f09a7c17e562e1643d13836d5f8d0a92f3"
 KAS_CONTAINER_SCRIPT_SHA256=9707355d1eba19e334e663ab9fcf6881ac323aed16ff7f4fd7e217f879a3894c
-YOCTO_VERSION=5.0.19
+YOCTO_VERSION=6.0
 CVE_DATABASE_MAX_AGE_SECONDS=172800
 GNU_COREUTILS_VERSION=9.7-3ubuntu2
 GNU_COREUTILS_SHA256=6b5b60a5c372b6e9d1dcfa1507317aae59bf809d4f4d6d363d3ef0a58a189137
@@ -16,6 +16,7 @@ engine=auto
 requested_channel=auto
 allow_dirty=false
 replace_output=false
+allow_unconfined_task_network=false
 mender_server_url=https://kys.dpdns.org
 bb_threads=${COSMOPOD_BB_NUMBER_THREADS:-6}
 make_jobs=${COSMOPOD_PARALLEL_MAKE_JOBS:-6}
@@ -26,6 +27,7 @@ usage() {
 Usage: scripts/build.sh [--build|--checkout-only] [--engine auto|native|container]
                         [--channel auto|development|release]
                         [--allow-dirty] [--replace-output]
+                        [--allow-unconfined-task-network]
                         [--mender-server-url https://HOST]
                         --board pi4|pi5|vm --version VERSION
 
@@ -45,6 +47,7 @@ while [[ $# -gt 0 ]]; do
         --version) version=${2:?missing version}; shift ;;
         --allow-dirty) allow_dirty=true ;;
         --replace-output) replace_output=true ;;
+        --allow-unconfined-task-network) allow_unconfined_task_network=true ;;
         --mender-server-url) mender_server_url=${2:?missing Mender server URL}; shift ;;
         -h|--help) usage; exit 0 ;;
         *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -221,7 +224,7 @@ done
 export TMPDIR="$tmp_dir"
 export PIP_CONFIG_FILE=/dev/null
 
-# Ubuntu 26.04 may provide `install` through uutils coreutils. Yocto 5.0's
+# Ubuntu 26.04 may provide `install` through uutils coreutils. Yocto's
 # native recipes require GNU install semantics. Extract the signed Ubuntu
 # archive package into the user cache rather than replacing essential host
 # packages. The exact package payload is checksum pinned.
@@ -307,6 +310,10 @@ case "$requested_channel" in
         output_channel=release
         ;;
 esac
+if [[ "$allow_unconfined_task_network" == true && "$output_channel" != development ]]; then
+    echo "Unconfined task networking is allowed only for development output" >&2
+    exit 1
+fi
 export_dir="$export_parent/$board-$output_channel"
 [[ "$(realpath -m -- "$export_parent")" == "$export_parent" ]] && \
     [[ "$(realpath -m -- "$export_dir")" == "$export_dir" ]] || {
@@ -371,6 +378,7 @@ local_conf_header:
     SSTATE_DIR = "\${TOPDIR}/../../sstate"
     BB_NUMBER_THREADS = "$bb_threads"
     PARALLEL_MAKE = "-j $make_jobs"
+    COSMOPOD_ALLOW_UNCONFINED_TASK_NETWORK = "$allow_unconfined_task_network"
 EOF
 umask "$previous_umask"
 chmod 0400 "$overlay_tmp"
@@ -547,8 +555,8 @@ else
         done
     fi
 
-    # Ubuntu 26.04's patched tar uses openat2 for extraction. Pseudo 1.9 from
-    # Yocto 5.0 cannot track the resulting directory fd (Yocto bug 16316).
+    # Some supported host tar implementations use openat2 in ways that Pseudo
+    # cannot track (Yocto bug 16316).
     # Always use the compatible tar already supplied by pinned buildtools.
     mkdir -p "$hosttools_dir"
     buildtools_tar="$work_dir/openembedded-core/buildtools/sysroots/x86_64-pokysdk-linux/usr/bin/tar"
@@ -641,9 +649,38 @@ else
     evidence_image_name="cosmopod-image-$device_type"
 fi
 
-spdx_source="$deploy_dir/$evidence_image_name.spdx.tar.zst"
-cve_source="$deploy_dir/$evidence_image_name.cve.json"
-license_source="$tmp_dir/deploy/licenses/${machine//-/_}/$evidence_image_name"
+spdx_source="$deploy_dir/$evidence_image_name.spdx.json"
+cve_source="$deploy_dir/$evidence_image_name.sbom-cve-check.yocto.json"
+image_manifest_link="$deploy_dir/$evidence_image_name.manifest"
+[[ -s "$image_manifest_link" ]] || {
+    echo "Image package manifest missing or empty: $image_manifest_link" >&2
+    exit 1
+}
+image_manifest=$(readlink -f -- "$image_manifest_link")
+deploy_dir_resolved=$(readlink -f -- "$deploy_dir")
+[[ -f "$image_manifest" && "${image_manifest%/*}" == "$deploy_dir_resolved" ]] || {
+    echo "Image package manifest resolves outside the deploy directory: $image_manifest_link" >&2
+    exit 1
+}
+license_deploy_root="$tmp_dir/deploy/licenses/${machine//-/_}"
+license_deploy_root_resolved=$(readlink -f -- "$license_deploy_root")
+package_license_source="$license_deploy_root/${image_manifest##*/}"
+package_license_source=${package_license_source%.manifest}
+image_license_link="$license_deploy_root/$evidence_image_name"
+image_license_source=$(readlink -f -- "$image_license_link")
+for license_directory in "$package_license_source" "$image_license_source"; do
+    [[ -d "$license_directory" &&
+       "${license_directory%/*}" == "$license_deploy_root_resolved" ]] || {
+        echo "Image license evidence resolves outside the license deploy directory: $license_directory" >&2
+        exit 1
+    }
+done
+license_source="$staging_dir/.license-source"
+mkdir -m 0700 -- "$license_source"
+cp -L -- "$image_license_source/image_license.manifest" \
+    "$package_license_source/license.manifest" \
+    "$package_license_source/package.manifest" \
+    "$license_source/"
 spdx_export="Cosmopod-OS-$version-$board-spdx.tar.zst"
 license_export="Cosmopod-OS-$version-$board-licenses.tar.xz"
 cve_export="Cosmopod-OS-$version-$board-cve.json"
@@ -668,14 +705,15 @@ done
     echo "Image CVE report missing or empty: $cve_source" >&2
     exit 1
 }
-cve_database="$cache_root/downloads/CVE_CHECK/nvdcve_2-2.db"
-[[ -f "$cve_database" && -s "$cve_database" && ! -L "$cve_database" ]] || {
-    echo "Yocto NVD database missing, empty, or symlinked: $cve_database" >&2
+cve_database="$tmp_dir/deploy/sbom-cve-check/databases"
+[[ -d "$cve_database" && ! -L "$cve_database" ]] || {
+    echo "Yocto SBOM CVE database directory missing or symlinked: $cve_database" >&2
     exit 1
 }
-cve_gate_checked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-
-cp -L -- "$spdx_source" "$staging_dir/$spdx_export"
+spdx_source_name=${spdx_source##*/}
+tar -C "$deploy_dir" --sort=name --mtime=@0 --owner=0 --group=0 \
+    --numeric-owner -cf - "$spdx_source_name" | \
+    zstd --quiet --stdout > "$staging_dir/$spdx_export"
 tar -C "$license_source" --sort=name --mtime=@0 --owner=0 --group=0 \
     --numeric-owner -cJf "$staging_dir/$license_export" .
 spdx_entries="$staging_dir/.spdx.entries"
@@ -703,6 +741,7 @@ for required_license_entry in \
 done
 rm -f -- "$spdx_entries" "$license_entries" "$normalized_license_entries"
 cp -L -- "$cve_source" "$staging_dir/$cve_export"
+cve_gate_checked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 python3 "$source_root/scripts/inspect-cve-database.py" \
     --database "$cve_database" \
     --build-started-at "$build_started_utc" \
@@ -727,6 +766,10 @@ if (( cve_gate_exit > 1 )); then
     echo "CVE gate input validation failed" >&2
     exit "$cve_gate_exit"
 fi
+rm -f -- "$license_source/image_license.manifest" \
+    "$license_source/license.manifest" \
+    "$license_source/package.manifest"
+rmdir -- "$license_source"
 cve_gate_as_of=$(sed -n 's/^as_of=//p' "$staging_dir/$cve_gate_export")
 cve_database_age_seconds=$(sed -n 's/^database_age_seconds=//p' \
     "$staging_dir/$cve_gate_export")
@@ -734,7 +777,7 @@ cve_gate_coverage_extra=$(sed -n 's/^coverage_extra=//p' \
     "$staging_dir/$cve_gate_export")
 cve_gate_decision=$(sed -n 's/^decision=//p' "$staging_dir/$cve_gate_export")
 cve_gate_denied=$(sed -n 's/^denied=//p' "$staging_dir/$cve_gate_export")
-[[ $(grep -Fxc 'format=cosmopod-cve-gate-v3' "$staging_dir/$cve_gate_export") -eq 1 &&
+[[ $(grep -Fxc 'format=cosmopod-cve-gate-v4' "$staging_dir/$cve_gate_export") -eq 1 &&
    $(grep -c '^as_of=' "$staging_dir/$cve_gate_export") -eq 1 &&
    "$cve_gate_as_of" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ &&
    "$cve_database_age_seconds" =~ ^[0-9]+$ &&
@@ -812,6 +855,8 @@ verify_export_invariants
     printf 'build_finished_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     printf 'build_engine=%s\n' "$engine"
     printf 'environment_sanitized=true\n'
+    printf 'task_network_isolation=%s\n' \
+        "$([[ "$allow_unconfined_task_network" == true ]] && printf false || printf true)"
     printf 'kas_version=%s\n' "$KAS_VERSION"
     printf 'kas_container_image=%s\n' "$KAS_CONTAINER_IMAGE"
     printf 'kas_container_script_sha256=%s\n' "$KAS_CONTAINER_SCRIPT_SHA256"

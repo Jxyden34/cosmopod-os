@@ -13,26 +13,26 @@ repos:
 
   openembedded-core:
     url: https://git.openembedded.org/openembedded-core.git
-    commit: 543550522f831479f07d332a40ba343c53ae1065
+    commit: f09a0f28aeb54ddd90415dd458338e1565bb5a49
     layers:
       meta:
 
   bitbake:
     url: https://git.openembedded.org/bitbake.git
-    commit: cff3be6f664f8f07a40727ff63eeeb24d6f5e00b
+    commit: fae9db3168dbff1b8c76fe9c6726a9687ff97514
     layers:
       bitbake: disabled
 
   meta-yocto:
     url: https://git.yoctoproject.org/meta-yocto.git
-    commit: 2f749ae477c3b94dce71038f025180d7f612dab0
+    commit: 1b132647002eea43a2c7a7f857f63f42dacbc26c
     layers:
       meta-poky:
       meta-yocto-bsp:
 
   meta-openembedded:
     url: https://git.openembedded.org/meta-openembedded.git
-    commit: ef3df29f2cfca6a9513b51ebcdccf82b6c8a836f
+    commit: af8b6d6b2f0b11595b0a0d5b82efa3129d52a628
     layers:
       meta-oe:
       meta-python:
@@ -42,17 +42,17 @@ repos:
 
   meta-raspberrypi:
     url: https://github.com/agherzan/meta-raspberrypi.git
-    commit: 6ca1f75017cc5d5acdb8bb05634c4bc01fa049fd
+    commit: f62c67921474370829d24a4fa01ef88543f3906b
 
   meta-mender:
     url: https://github.com/mendersoftware/meta-mender.git
-    commit: 00d4dfc36625a27ca0d6ad7aa33eeeab397281a9
+    commit: 62719a7450e798202907f55d4dad1b0488102411
     layers:
       meta-mender-core:
 
   meta-mender-community:
     url: https://github.com/theyoctojester/meta-mender-community.git
-    commit: bc815f010f3b6c2180c2acb2b632bdcc9ff992c6
+    commit: 78b2895adcf2053595e1508bc5846aa1c3d033ba
     layers:
       meta-mender-raspberrypi:
 
@@ -63,27 +63,23 @@ local_conf_header:
     PACKAGE_CLASSES = "package_ipk"
     LICENSE_FLAGS_ACCEPTED:append = " synaptics-killswitch"
 
-    INHERIT += "create-spdx cve-check"
+    OE_FRAGMENTS += "core/yocto/sbom-cve-check"
+    INHERIT += "cosmopod-task-network-compat"
     SPDX_INCLUDE_SOURCES = "0"
     SPDX_ARCHIVE_PACKAGED = "0"
     SPDX_PRETTY = "1"
     COPY_LIC_MANIFEST = "1"
     COPY_LIC_DIRS = "1"
-    CVE_CHECK_CREATE_MANIFEST = "1"
-    CVE_CHECK_MANIFEST_JSON_SUFFIX = "cve.json"
-    CVE_CHECK_REPORT_PATCHED = "1"
-    # Keep complete text/JSON evidence, but do not emit the entire kernel CVE
-    # set as one console line.  That exceeds KAS/Python's stream line limit.
-    CVE_CHECK_SHOW_WARNINGS = "0"
-    CVE_DB_UPDATE_INTERVAL = "0"
+    # Keep complete JSON/SPDX evidence, but do not emit the entire kernel CVE
+    # set as one console line. That exceeds KAS/Python's stream line limit.
+    SBOM_CVE_CHECK_SHOW_WARNINGS = "0"
     include conf/distro/include/cve-extra-exclusions.inc
-    PREFERRED_VERSION_linux-raspberrypi = "6.12.%"
     ARTIFACTIMG_FSTYPE = "ext4"
     MENDER_STORAGE_TOTAL_SIZE_MB = "7450"
     MENDER_BOOT_PART_SIZE_MB = "256"
     MENDER_DATA_PART_SIZE_MB = "1024"
 
-    COSMOPOD_VERSION ?= "0.43.0-dev"
+    COSMOPOD_VERSION ?= "0.55.0-dev"
     MENDER_ARTIFACT_NAME ?= "cosmopod-os-${COSMOPOD_VERSION}-${MACHINE}"
     MENDER_SERVER_URL ?= "https://kys.dpdns.org"
     MENDER_TENANT_TOKEN ?= ""

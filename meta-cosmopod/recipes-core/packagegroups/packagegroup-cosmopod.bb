@@ -45,10 +45,18 @@ RDEPENDS:packagegroup-cosmopod-wayland = " \
 "
 
 RDEPENDS:packagegroup-cosmopod-tools = " \
+    acl \
+    at \
+    attr \
     avahi-daemon \
     avahi-utils \
+    bc \
     bluez5 \
+    bzip2 \
     cmake \
+    cpio \
+    cronie \
+    diffutils \
     dosfstools \
     e2fsprogs \
     e2fsprogs-resize2fs \
@@ -59,27 +67,38 @@ RDEPENDS:packagegroup-cosmopod-tools = " \
     gcc \
     git \
     grep \
+    gzip \
     htop \
     i2c-tools \
     iw \
+    kmod \
     less \
     libgpiod-tools \
+    logrotate \
     lsof \
+    m4 \
     make \
     nano \
+    net-tools \
+    nfs-utils \
     nmap \
-    packagegroup-core-full-cmdline \
+    patch \
     parted \
     pciutils \
     pkgconfig \
+    psmisc \
     python3 \
     python3-modules \
     python3-pip \
     rfkill \
+    rpcbind \
     rsync \
     sed \
+    shadow \
     strace \
+    tar \
     tcpdump \
+    time \
     tmux \
     tree \
     usbutils \

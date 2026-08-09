@@ -132,6 +132,10 @@ def check_distro_identity() -> None:
 
 
 def check_vm_image_scoping() -> None:
+    vm_recipe_path = ROOT / 'meta-cosmopod/recipes-core/cosmopod-vm-config/cosmopod-vm-config_1.0.bb'
+    vm_recipe_text = vm_recipe_path.read_text(encoding='utf-8')
+    if '${WORKDIR}/' in vm_recipe_text or '${UNPACKDIR}/cosmopod-seatd.service' not in vm_recipe_text:
+        fail('VM recipe must install Yocto 6 local files from UNPACKDIR')
     text = (ROOT / "kas/vm-x86_64.yml").read_text(encoding="utf-8")
     for variable in ("IMAGE_FSTYPES:append", "IMAGE_INSTALL:append"):
         if re.search(rf"^\s+{re.escape(variable)}\s*=", text, re.MULTILINE):
@@ -196,7 +200,10 @@ def check_vm_image_scoping() -> None:
         "cosmopod-seatd.service"
     ).read_text(encoding="utf-8")
     for seatd_control in (
-        "ExecStart=/usr/bin/seatd -g wayland",
+        "ExecStart=/usr/bin/seatd -g seat",
+        "Environment=SEATD_VTBOUND=0",
+        "while [ ! -S /run/seatd.sock ]",
+        "TimeoutStartSec=10",
         "NoNewPrivileges=yes",
         "ProtectSystem=strict",
         "RestrictAddressFamilies=AF_UNIX",
@@ -205,6 +212,18 @@ def check_vm_image_scoping() -> None:
             fail(f"VM seat broker hardening missing: {seatd_control}")
     if "Requires=cosmopod-seatd.service" not in weston_vm:
         fail("VM Weston must require its seat broker")
+    if "Environment=LIBSEAT_BACKEND=seatd" not in weston_vm:
+        fail("VM Weston must use the ready seatd backend")
+    weston_init = (
+        ROOT / "meta-cosmopod/recipes-graphics/wayland/weston-init.bbappend"
+    ).read_text(encoding="utf-8")
+    if "-G video,input,render,seat,wayland weston" not in weston_init:
+        fail("Weston service account must join the seatd socket group")
+    image_recipe = (
+        ROOT / "meta-cosmopod/recipes-core/images/cosmopod-image.bb"
+    ).read_text(encoding="utf-8")
+    if "-G wheel,audio,video,input,render,seat,wayland,dialout cosmopod" not in image_recipe:
+        fail("Cosmopod graphical session account must join the seatd socket group")
     kernel_append = (
         ROOT / "meta-cosmopod/recipes-kernel/linux/linux-yocto_%.bbappend"
     ).read_text(encoding="utf-8")
@@ -213,12 +232,9 @@ def check_vm_image_scoping() -> None:
     ).read_text(encoding="utf-8")
     if "SRC_URI:append:genericx86-64" not in kernel_append:
         fail("Hyper-V kernel fragment must be scoped to the x86 VM")
-    for kernel_pin in (
-        'SRCREV_machine:genericx86-64 = "2baf8e92ef6ad38945005adf39342b9efb4509ec"',
-        'LINUX_VERSION:genericx86-64 = "6.6.144"',
-    ):
-        if kernel_pin not in kernel_append:
-            fail(f"VM maintained-kernel pin missing: {kernel_pin}")
+    if "SRCREV_machine:genericx86-64" in kernel_append or \
+       "LINUX_VERSION:genericx86-64" in kernel_append:
+        fail("VM kernel must follow the pinned Yocto 6.0 LTS metadata")
     for kernel_control in (
         "CONFIG_HYPERVISOR_GUEST=y",
         "CONFIG_HYPERV_NET=y",
@@ -352,6 +368,7 @@ def check_release_provenance() -> None:
         "build_override_vars=(",
         "KAS_MACHINE KAS_PREMIRRORS",
         "environment_sanitized=true",
+        "task_network_isolation=",
         "ensure_cache_dir",
         "COSMOPOD_BUILD_ROOT must resolve under",
         "Unsafe or symlinked cache directory",
@@ -365,7 +382,12 @@ def check_release_provenance() -> None:
         "Exported KAS overlay does not match consumed configuration",
         'deploy_dir="$tmp_dir/deploy/images/$machine"',
         'evidence_image_name="cosmopod-image-$machine.rootfs"',
-        'license_source="$tmp_dir/deploy/licenses/${machine//-/_}/$evidence_image_name"',
+        'image_manifest_link="$deploy_dir/$evidence_image_name.manifest"',
+        'image_manifest=$(readlink -f -- "$image_manifest_link")',
+        'package_license_source="$license_deploy_root/${image_manifest##*/}"',
+        'image_license_link="$license_deploy_root/$evidence_image_name"',
+        'image_license_source=$(readlink -f -- "$image_license_link")',
+        'license_source="$staging_dir/.license-source"',
         "output_channel=development",
         "requested_channel=",
         "Release channel requires a clean source tree",
@@ -394,6 +416,7 @@ def check_release_provenance() -> None:
         "BUILD-MANIFEST.txt",
         "source_dirty=false",
         "environment_sanitized=true",
+        "task_network_isolation=true",
         "cosmopod-signing-record-v2",
         "Unsigned artifact unexpectedly passed",
         "wrong-key validation",
@@ -408,7 +431,7 @@ def check_release_provenance() -> None:
         "KAS overlay does not reproduce from recorded build inputs",
         "spdx_bundle_sha256=",
         "cve_database_evidence_sha256=",
-        "format=cosmopod-cve-gate-v3",
+        "format=cosmopod-cve-gate-v4",
         "--database-evidence",
         "--license-manifest",
         "--verification-at",
@@ -430,17 +453,22 @@ def check_release_provenance() -> None:
         "SPDX archive contains no SPDX JSON document",
         "database_fresh=true",
         "coverage_complete=true",
-        "format=cosmopod-cve-gate-v3",
+        "format=cosmopod-cve-gate-v4",
         "--database-evidence",
         "--license-manifest",
         "--verification-at",
-        'out/$version/$board-release',
+        'out/$version/$board-$channel',
+        'channel=release',
+        'decision=$cve_decision',
+        "Development CVE gate contains an invalid decision",
+        "CVE gate replay failed",
         'validate "$signed" -k "$public"',
     ):
         if marker not in validator:
             fail(f"artifact security evidence validation missing: {marker}")
-    if "cosmopod-cve-gate-v2" in signer or "cosmopod-cve-gate-v2" in validator:
-        fail("release signer or validator still accepts obsolete CVE gate v2 evidence")
+    for obsolete_gate in ("cosmopod-cve-gate-v2", "cosmopod-cve-gate-v3"):
+        if obsolete_gate in signer or obsolete_gate in validator:
+            fail("release signer or validator still accepts obsolete CVE gate evidence")
 
     operator = (ROOT / "backend/production/release.sh").read_text(encoding="utf-8")
     for marker in (
@@ -465,18 +493,28 @@ def check_release_provenance() -> None:
 
 def check_release_security_evidence() -> None:
     common = (ROOT / "kas/common.yml").read_text(encoding="utf-8")
+    image = (
+        ROOT / "meta-cosmopod/recipes-core/images/cosmopod-image.bb"
+    ).read_text(encoding="utf-8")
     gate = (ROOT / "scripts/check-cve-report.py").read_text(encoding="utf-8")
     keygen = (ROOT / "scripts/generate-signing-key.sh").read_text(encoding="utf-8")
     waivers = (ROOT / "security/cve-waivers.json").read_text(encoding="utf-8")
     for marker in (
-        'INHERIT += "create-spdx cve-check"',
-        'CVE_CHECK_CREATE_MANIFEST = "1"',
-        'CVE_CHECK_MANIFEST_JSON_SUFFIX = "cve.json"',
+        'OE_FRAGMENTS += "core/yocto/sbom-cve-check"',
+        'INHERIT += "cosmopod-task-network-compat"',
+        'SBOM_CVE_CHECK_SHOW_WARNINGS = "0"',
         'COPY_LIC_MANIFEST = "1"',
         'COPY_LIC_DIRS = "1"',
     ):
         if marker not in common:
             fail(f"Yocto release evidence control missing: {marker}")
+    for marker in (
+        "python do_sbom_cve_check:prepend()",
+        'stable_path = d.expand("${DEPLOY_DIR_IMAGE}/${IMAGE_LINK_NAME}.spdx.json")',
+        "os.symlink(os.path.basename(stable_target), timestamped_path)",
+    ):
+        if marker not in image:
+            fail("image CVE scan must materialize its input from the stable SPDX link")
     for marker in (
         "BLOCKING_SCORE = 7.0",
         'status in ("Unpatched", "Unknown")',
@@ -503,12 +541,12 @@ def check_host_compatibility_patches() -> None:
         / "meta-cosmopod/recipes-graphics/virglrenderer/virglrenderer_%.bbappend",
     )
     if any(path.exists() for path in obsolete_patches):
-        fail("local graphics host patch duplicates pinned Yocto 5.0.19 metadata")
+        fail("local graphics host patch duplicates pinned Yocto 6.0 metadata")
     pseudo = (
         ROOT / "meta-cosmopod/recipes-devtools/pseudo/pseudo_%.bbappend"
     ).read_text(encoding="utf-8")
     if 'PV = ' in pseudo or 'SRCREV = ' in pseudo:
-        fail("pseudo version must come from pinned Yocto 5.0.19 metadata")
+        fail("pseudo version must come from pinned Yocto 6.0 metadata")
     pseudo_openat2 = ROOT / (
         "meta-cosmopod/recipes-devtools/pseudo/files/"
         "0001-openat2-fallback-to-enosys.patch"

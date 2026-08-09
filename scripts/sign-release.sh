@@ -329,6 +329,10 @@ manifest_value() {
     echo "Refusing to sign a build without environment sanitization evidence" >&2
     exit 1
 }
+[[ $(grep -Fxc 'task_network_isolation=true' "$manifest") -eq 1 ]] || {
+    echo "Refusing to sign a build without task-network isolation evidence" >&2
+    exit 1
+}
 
 manifest_version=$(manifest_value version)
 manifest_board=$(manifest_value board)
@@ -525,7 +529,7 @@ EOF
     echo "KAS overlay does not reproduce from recorded build inputs" >&2
     exit 1
 }
-[[ $(grep -Fxc 'format=cosmopod-cve-gate-v3' "$release_temp_dir/$cve_gate") -eq 1 &&
+[[ $(grep -Fxc 'format=cosmopod-cve-gate-v4' "$release_temp_dir/$cve_gate") -eq 1 &&
    $(grep -Fxc "as_of=$cve_gate_as_of" "$release_temp_dir/$cve_gate") -eq 1 &&
    $(grep -Fxc "evaluated_at=$cve_gate_checked_at" "$release_temp_dir/$cve_gate") -eq 1 &&
    $(grep -Fxc "report_sha256=$(sha256sum "$release_temp_dir/$cve_report" | awk '{print $1}')" "$release_temp_dir/$cve_gate") -eq 1 &&

@@ -31,18 +31,18 @@ RDEPENDS:${PN} += " \
 
 do_install() {
     install -d ${D}${libexecdir}
-    install -m 0755 ${WORKDIR}/cosmopod-firstboot.py ${D}${libexecdir}/cosmopod-firstboot
-    install -m 0755 ${WORKDIR}/cosmopod-persist.sh ${D}${libexecdir}/cosmopod-persist
+    install -m 0755 ${UNPACKDIR}/cosmopod-firstboot.py ${D}${libexecdir}/cosmopod-firstboot
+    install -m 0755 ${UNPACKDIR}/cosmopod-persist.sh ${D}${libexecdir}/cosmopod-persist
 
     install -d ${D}${systemd_system_unitdir}
-    install -m 0644 ${WORKDIR}/cosmopod-firstboot.service ${D}${systemd_system_unitdir}/
-    install -m 0644 ${WORKDIR}/cosmopod-persist.service ${D}${systemd_system_unitdir}/
+    install -m 0644 ${UNPACKDIR}/cosmopod-firstboot.service ${D}${systemd_system_unitdir}/
+    install -m 0644 ${UNPACKDIR}/cosmopod-persist.service ${D}${systemd_system_unitdir}/
 
     install -d ${D}${sysconfdir}/ssh/sshd_config.d
-    install -m 0600 ${WORKDIR}/50-cosmopod-sshd.conf ${D}${sysconfdir}/ssh/sshd_config.d/
+    install -m 0600 ${UNPACKDIR}/50-cosmopod-sshd.conf ${D}${sysconfdir}/ssh/sshd_config.d/
 
     install -d ${D}${sysconfdir}/sudoers.d
-    install -m 0440 ${WORKDIR}/cosmopod-sudoers ${D}${sysconfdir}/sudoers.d/cosmopod
+    install -m 0440 ${UNPACKDIR}/cosmopod-sudoers ${D}${sysconfdir}/sudoers.d/cosmopod
 
     install -d ${D}${sysconfdir}/systemd/system/NetworkManager.service.d
     cat > ${D}${sysconfdir}/systemd/system/NetworkManager.service.d/cosmopod.conf <<'EOF'
@@ -87,19 +87,19 @@ EOF
     done
 
     install -d ${D}${datadir}/cosmopod/home-seed
-    install -m 0644 ${WORKDIR}/cosmopod-profile ${D}${datadir}/cosmopod/home-seed/.profile
-    install -m 0644 ${WORKDIR}/cosmopod-readme.txt ${D}${datadir}/cosmopod/home-seed/README.txt
+    install -m 0644 ${UNPACKDIR}/cosmopod-profile ${D}${datadir}/cosmopod/home-seed/.profile
+    install -m 0644 ${UNPACKDIR}/cosmopod-readme.txt ${D}${datadir}/cosmopod/home-seed/README.txt
 
 }
 
 do_compile() {
-    install -m 0755 ${WORKDIR}/ArtifactCommit_Enter_50_cosmopod-health \
+    install -m 0755 ${UNPACKDIR}/ArtifactCommit_Enter_50_cosmopod-health \
         ${MENDER_STATE_SCRIPTS_DIR}/ArtifactCommit_Enter_50_cosmopod-health
 }
 
 do_deploy() {
     install -d ${DEPLOYDIR}
-    install -m 0644 ${WORKDIR}/cosmopod.conf.example ${DEPLOYDIR}/cosmopod.conf.example
+    install -m 0644 ${UNPACKDIR}/cosmopod.conf.example ${DEPLOYDIR}/cosmopod.conf.example
 }
 addtask deploy after do_compile before do_build
 
