@@ -72,7 +72,7 @@ def check_build_supply_chain() -> None:
     expected_versions = {
         "attrs": "26.1.0",
         "distro": "1.9.0",
-        "gitpython": "3.1.52",
+        "gitpython": "3.1.58",
         "gitdb": "4.0.12",
         "jsonschema": "4.25.1",
         "jsonschema-specifications": "2025.9.1",
@@ -110,8 +110,8 @@ def check_build_supply_chain() -> None:
         if "--hash=sha256:" not in continuation:
             fail(f"kas native dependency lacks a hash: {name}")
     hashes = re.findall(r"--hash=sha256:([0-9a-f]{64})(?:\s|$)", lock)
-    if len(hashes) != 21 or len(set(hashes)) != 21:
-        fail("kas native dependency lock must contain 21 unique SHA-256 hashes")
+    if len(hashes) != 22 or len(set(hashes)) != 22:
+        fail("kas native dependency lock must contain 22 unique SHA-256 hashes")
     if "f63a964068c1db73075faf10185b0ab5386d6876e8ff5f28560354075e8890f1" not in hashes:
         fail("official kas 5.4 wheel hash is missing")
 
