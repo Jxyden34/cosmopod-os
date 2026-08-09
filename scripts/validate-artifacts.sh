@@ -44,7 +44,8 @@ case "$channel" in
     *) usage; exit 2 ;;
 esac
 out_dir="$root/out/$version/$board-$channel"
-work_dir=${COSMOPOD_BUILD_ROOT:-"$HOME/.cache/cosmopod-os"}/work-$board
+build_root=${COSMOPOD_BUILD_ROOT:-"$HOME/.cache/cosmopod-os"}
+tmp_dir="$build_root/tmp"
 temp_files=()
 
 cleanup() {
@@ -59,6 +60,30 @@ cd "$out_dir"
 
 require() {
     command -v "$1" >/dev/null || { echo "Missing validation tool: $1" >&2; exit 1; }
+}
+
+native_tool() {
+    local tool=$1
+    find "$tmp_dir/work/x86_64-linux" -type f -executable \
+        -path "*/usr/bin/$tool" -print -quit
+}
+
+image_os_release() {
+    local target candidate
+    case "$board" in
+        pi4) target=raspberrypi4_64-poky-linux ;;
+        pi5) target=raspberrypi5-poky-linux ;;
+        vm) target=genericx86_64-poky-linux ;;
+    esac
+
+    for candidate in "$tmp_dir/work/$target/cosmopod-image"/*/rootfs/etc/os-release; do
+        if [[ -f "$candidate" && ! -L "$candidate" ]]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done
+    echo "Missing built os-release for $board under $tmp_dir" >&2
+    return 1
 }
 
 validate_checksum_index() {
@@ -473,7 +498,9 @@ validate_pi() {
     [[ $(partition_value "$raw" 4 TYPE) == ext4 ]]
     [[ $(partition_value "$raw" 4 LABEL) == data ]]
 
-    artifact_tool=${MENDER_ARTIFACT:-"$work_dir/build/tmp/sysroots-components/x86_64/mender-artifact-native/usr/bin/mender-artifact"}
+    artifact_tool=${MENDER_ARTIFACT:-$(find "$tmp_dir/work/x86_64-linux/mender-artifact-native" \
+        -type f -executable \( -path '*/build/bin/mender-artifact' -o -path '*/usr/bin/mender-artifact' \) \
+        -print -quit)}
     [[ -x "$artifact_tool" ]] || { echo "Missing mender-artifact: $artifact_tool" >&2; exit 1; }
     "$artifact_tool" validate "$mender"
     metadata=$("$artifact_tool" read "$mender")
@@ -513,9 +540,7 @@ validate_pi() {
         grep -Fqx 'release_index_authenticated=true' "$signed_record"
     fi
 
-    os_release=$(find "$work_dir/build/tmp/work" -maxdepth 6 \
-        -path '*/cosmopod-image/*/rootfs/etc/os-release' -print -quit)
-    [[ -n "$os_release" ]]
+    os_release=$(image_os_release)
     grep -q '^ID=cosmopod$' "$os_release"
     grep -q '^NAME="Cosmopod OS"$' "$os_release"
     grep -q "^VERSION_ID=$version$" "$os_release"
@@ -542,14 +567,12 @@ validate_vm() {
     }
     fdisk -l "$iso"
 
-    qemu_img=${QEMU_IMG:-$(find "$work_dir/build/tmp/sysroots-components/x86_64" \
-        -path '*/usr/bin/qemu-img' -type f -print -quit)}
-    isoinfo=${ISOINFO:-$(find "$work_dir/build/tmp/sysroots-components/x86_64" \
-        -path '*/usr/bin/isoinfo' -type f -print -quit)}
+    qemu_img=${QEMU_IMG:-$(native_tool qemu-img)}
+    isoinfo=${ISOINFO:-$(native_tool isoinfo)}
     [[ -x "$qemu_img" ]] || { echo "Missing qemu-img validator" >&2; exit 1; }
     [[ -x "$isoinfo" ]] || { echo "Missing isoinfo validator" >&2; exit 1; }
 
-    kernel_config="$work_dir/build/tmp/work-shared/genericx86-64/kernel-build-artifacts/.config"
+    kernel_config="$tmp_dir/work-shared/genericx86-64/kernel-build-artifacts/.config"
     [[ -s "$kernel_config" ]] || {
         echo "Missing final VM kernel configuration: $kernel_config" >&2
         exit 1
@@ -598,9 +621,7 @@ validate_vm() {
     grep -Fxiq '/efi.img' <<<"$listing"
     grep -Fxiq '/rootfs.img' <<<"$listing"
 
-    os_release=$(find "$work_dir/build/tmp/work" -maxdepth 6 \
-        -path '*/cosmopod-image/*/rootfs/etc/os-release' -print -quit)
-    [[ -n "$os_release" ]]
+    os_release=$(image_os_release)
     grep -q '^ID=cosmopod$' "$os_release"
     grep -q '^NAME="Cosmopod OS"$' "$os_release"
     grep -q "^VERSION_ID=$version$" "$os_release"
