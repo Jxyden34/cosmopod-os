@@ -2,11 +2,12 @@
 set -Eeuo pipefail
 
 usage() {
-    echo "Usage: scripts/validate-artifacts.sh {pi4|pi5|vm} [VERSION]" >&2
+    echo "Usage: scripts/validate-artifacts.sh {pi4|pi5|vm} [VERSION] [--channel development|release]" >&2
 }
 
-[[ $# -ge 1 && $# -le 2 ]] || { usage; exit 2; }
+[[ $# -ge 1 && $# -le 4 ]] || { usage; exit 2; }
 board=$1
+shift
 case "$board" in
     pi4|pi5|vm) ;;
     *) usage; exit 2 ;;
@@ -16,8 +17,33 @@ script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 root=$(cd -- "$script_dir/.." && pwd -P)
 # shellcheck source=release-common.sh
 source "$script_dir/release-common.sh"
-version=${2:-$(<"$root/VERSION")}
-out_dir="$root/out/$version/$board-release"
+version=$(<"$root/VERSION")
+channel=release
+version_supplied=false
+while (($#)); do
+    case "$1" in
+        --channel)
+            [[ $# -ge 2 ]] || { usage; exit 2; }
+            channel=$2
+            shift 2
+            ;;
+        development|release)
+            channel=$1
+            shift
+            ;;
+        *)
+            [[ "$version_supplied" == false ]] || { usage; exit 2; }
+            version=$1
+            version_supplied=true
+            shift
+            ;;
+    esac
+done
+case "$channel" in
+    development|release) ;;
+    *) usage; exit 2 ;;
+esac
+out_dir="$root/out/$version/$board-$channel"
 work_dir=${COSMOPOD_BUILD_ROOT:-"$HOME/.cache/cosmopod-os"}/work-$board
 temp_files=()
 
@@ -210,6 +236,7 @@ validate_security_evidence() {
     local expected_entries actual_entries expected_overlay_text
     local signed_artifact signed_record signed_checksum signed_index_signature signed_count
     local entry spdx_entries license_entries normalized_license_entries required_license_entry license_manifest
+    local cve_decision
     for tool in awk cat cmp find grep mktemp openssl python3 sha256sum sort tar xz zstd; do
         require "$tool"
     done
@@ -312,6 +339,7 @@ local_conf_header:
     SSTATE_DIR = "\${TOPDIR}/../../sstate"
     BB_NUMBER_THREADS = "$bb_number_threads"
     PARALLEL_MAKE = "-j $parallel_make_jobs"
+    COSMOPOD_ALLOW_UNCONFINED_TASK_NETWORK = "false"
 EOF
 )
     [[ "$(<"$out_dir/$kas_overlay")" == "$expected_overlay_text" ]] || {
@@ -351,6 +379,15 @@ EOF
         echo "Extracted license manifest is empty" >&2
         exit 1
     }
+    if [[ "$channel" == release ]]; then
+        cve_decision=PASS
+    else
+        cve_decision=$(sed -n 's/^decision=//p' "$out_dir/$cve_gate")
+        [[ "$cve_decision" == PASS || "$cve_decision" == FAIL ]] || {
+            echo "Development CVE gate contains an invalid decision" >&2
+            exit 1
+        }
+    fi
     [[ $(grep -Fxc 'format=cosmopod-cve-gate-v4' "$out_dir/$cve_gate") -eq 1 &&
        $(grep -Fxc "as_of=$cve_gate_as_of" "$out_dir/$cve_gate") -eq 1 &&
        $(grep -Fxc "evaluated_at=$cve_gate_checked_at" "$out_dir/$cve_gate") -eq 1 &&
@@ -364,7 +401,7 @@ EOF
        $(grep -Fxc "database_max_age_seconds=$cve_database_max_age_seconds" "$out_dir/$cve_gate") -eq 1 &&
        $(grep -Fxc 'database_fresh=true' "$out_dir/$cve_gate") -eq 1 &&
        $(grep -Fxc 'coverage_complete=true' "$out_dir/$cve_gate") -eq 1 &&
-       $(grep -Fxc 'decision=PASS' "$out_dir/$cve_gate") -eq 1 ]] || {
+       $(grep -Fxc "decision=$cve_decision" "$out_dir/$cve_gate") -eq 1 ]] || {
         echo "Recorded CVE gate evidence is invalid or did not pass" >&2
         exit 1
     }
@@ -569,4 +606,8 @@ else
     validate_pi
 fi
 
-echo "PASS Cosmopod OS $version $board artifact validation"
+if [[ "$channel" == release ]]; then
+    echo "PASS Cosmopod OS $version $board release artifact validation"
+else
+    echo "PASS Cosmopod OS $version $board development artifact integrity validation (CVE decision: $cve_decision; not release-qualified)"
+fi
