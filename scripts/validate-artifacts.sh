@@ -408,6 +408,7 @@ EOF
 
     replay=$(mktemp "${COSMOPOD_BUILD_ROOT:-"$HOME/.cache/cosmopod-os"}/$board-cve-gate.XXXXXX.txt")
     temp_files+=("$replay")
+    set +e
     python3 "$root/scripts/check-cve-report.py" \
         --report "$out_dir/$cve_report" \
         --waivers "$root/security/cve-waivers.json" \
@@ -416,6 +417,15 @@ EOF
         --verification-at "$cve_gate_checked_at" \
         --as-of "$cve_gate_as_of" \
         --output "$replay" >/dev/null
+    replay_status=$?
+    set -e
+    if ((replay_status != 0)); then
+        [[ "$channel" == development && "$cve_decision" == FAIL &&
+           "$replay_status" -eq 1 ]] || {
+            echo "CVE gate replay failed" >&2
+            exit 1
+        }
+    fi
     cmp -s -- "$out_dir/$cve_gate" "$replay" || {
         echo "Recorded CVE gate evidence does not reproduce from trusted inputs" >&2
         exit 1

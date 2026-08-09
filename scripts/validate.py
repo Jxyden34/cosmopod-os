@@ -461,6 +461,7 @@ def check_release_provenance() -> None:
         'channel=release',
         'decision=$cve_decision',
         "Development CVE gate contains an invalid decision",
+        "CVE gate replay failed",
         'validate "$signed" -k "$public"',
     ):
         if marker not in validator:
