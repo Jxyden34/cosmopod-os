@@ -457,7 +457,10 @@ def check_release_provenance() -> None:
         "--database-evidence",
         "--license-manifest",
         "--verification-at",
-        'out/$version/$board-release',
+        'out/$version/$board-$channel',
+        'channel=release',
+        'decision=$cve_decision',
+        "Development CVE gate contains an invalid decision",
         'validate "$signed" -k "$public"',
     ):
         if marker not in validator:
