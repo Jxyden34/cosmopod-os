@@ -269,7 +269,6 @@ validate_security_evidence() {
     local expected_entries actual_entries expected_overlay_text
     local signed_artifact signed_record signed_checksum signed_index_signature signed_count
     local entry spdx_entries license_entries normalized_license_entries required_license_entry license_manifest
-    local cve_decision
     for tool in awk cat cmp find grep mktemp openssl python3 sha256sum sort tar xz zstd; do
         require "$tool"
     done

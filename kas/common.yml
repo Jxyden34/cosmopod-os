@@ -79,7 +79,7 @@ local_conf_header:
     MENDER_BOOT_PART_SIZE_MB = "256"
     MENDER_DATA_PART_SIZE_MB = "1024"
 
-    COSMOPOD_VERSION ?= "0.54.0-dev"
+    COSMOPOD_VERSION ?= "0.55.0-dev"
     MENDER_ARTIFACT_NAME ?= "cosmopod-os-${COSMOPOD_VERSION}-${MACHINE}"
     MENDER_SERVER_URL ?= "https://kys.dpdns.org"
     MENDER_TENANT_TOKEN ?= ""
