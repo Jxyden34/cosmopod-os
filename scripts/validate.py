@@ -219,7 +219,10 @@ def check_vm_image_scoping() -> None:
     ).read_text(encoding="utf-8")
     if "-G video,input,render,seat,wayland weston" not in weston_init:
         fail("Weston service account must join the seatd socket group")
-    if 'PACKAGECONFIG:append = " headless"' not in weston_init:
+    weston_recipe = (
+        ROOT / "meta-cosmopod/recipes-graphics/wayland/weston_%.bbappend"
+    ).read_text(encoding="utf-8")
+    if 'PACKAGECONFIG:append = " headless"' not in weston_recipe:
         fail("Weston must build the headless backend")
     weston_launcher = (
         ROOT / "meta-cosmopod/recipes-core/cosmopod-config/files/cosmopod-weston"
