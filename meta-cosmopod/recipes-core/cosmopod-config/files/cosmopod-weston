@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+
+for status in /sys/class/drm/*/status; do
+    [ -r "$status" ] && [ "$(cat "$status")" = connected ] && \
+        exec /usr/bin/weston --backend=drm --modules=systemd-notify.so
+done
+
+exec /usr/bin/weston --backend=headless-backend.so --modules=systemd-notify.so

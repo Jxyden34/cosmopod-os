@@ -1,5 +1,6 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 SRC_URI:append = " file://weston.ini"
+PACKAGECONFIG:append = " headless"
 
 # Upstream creates a normal Weston user, which can consume UID 1000 before the
 # image creates the interactive Cosmopod account. Weston itself runs as
