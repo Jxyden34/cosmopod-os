@@ -680,7 +680,7 @@ validate_vm() {
     grep -Fxiq '/rootfs.img' <<<"$listing"
 
     os_release=$(find "$tmp_dir/work/genericx86_64-poky-linux/cosmopod-image" \
-        -path '*/rootfs/etc/os-release' -type f -print -quit)
+        -path '*/rootfs/usr/lib/os-release' -type f -print -quit)
     [[ -n "$os_release" ]]
     grep -q '^ID=cosmopod$' "$os_release"
     grep -q '^NAME="Cosmopod OS"$' "$os_release"
