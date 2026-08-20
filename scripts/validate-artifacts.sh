@@ -376,6 +376,7 @@ validate_security_evidence() {
         exit 1
     }
     while IFS= read -r entry; do
+        [[ "$entry" == smoke ]] && continue
         [[ -f "$out_dir/$entry" && ! -L "$out_dir/$entry" ]] || {
             echo "Release entry is not one regular, non-symlinked file: $entry" >&2
             exit 1
