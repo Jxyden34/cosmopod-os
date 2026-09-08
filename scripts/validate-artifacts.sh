@@ -312,7 +312,7 @@ validate_security_evidence() {
     local mender_server_url device_type evidence_name evidence_path replay
     local expected_entries actual_entries checksum_entries expected_overlay_text
     local signed_artifact signed_record signed_checksum signed_index_signature signed_count
-    local entry spdx_entries license_entries normalized_license_entries required_license_entry license_manifest
+    local entry license_entries normalized_license_entries required_license_entry license_manifest
     for tool in awk cat cmp find grep mktemp openssl python3 sha256sum sort tar xz zstd; do
         require "$tool"
     done
@@ -425,17 +425,9 @@ EOF
         echo "KAS overlay does not reproduce from recorded build inputs" >&2
         exit 1
     }
-    spdx_entries=$(mktemp "${TMPDIR:-/tmp}/cosmopod-spdx-entries.XXXXXX")
     license_entries=$(mktemp "${TMPDIR:-/tmp}/cosmopod-license-entries.XXXXXX")
-    temp_files+=("$spdx_entries" "$license_entries")
-    zstd --test --quiet "$out_dir/$spdx_bundle"
-    zstd --decompress --stdout --quiet "$out_dir/$spdx_bundle" |
-        tar -tf - > "$spdx_entries"
-    validate_archive_paths "$spdx_entries" "SPDX"
-    grep -Eq '(^|/)[^/]+\.spdx\.json$' "$spdx_entries" || {
-        echo "SPDX archive contains no SPDX JSON document" >&2
-        exit 1
-    }
+    temp_files+=("$license_entries")
+    validate_spdx_bundle "$out_dir/$spdx_bundle" "$board"
     xz --test --verbose "$out_dir/$license_archive"
     tar -tJf "$out_dir/$license_archive" > "$license_entries"
     validate_archive_paths "$license_entries" "License"

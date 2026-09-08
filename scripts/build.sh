@@ -691,6 +691,11 @@ cve_database_export="Cosmopod-OS-$version-$board-cve-database.txt"
     echo "Image SPDX bundle missing or empty: $spdx_source" >&2
     exit 1
 }
+spdx_source_resolved=$(readlink -f -- "$spdx_source")
+[[ -f "$spdx_source_resolved" && "${spdx_source_resolved%/*}" == "$deploy_dir_resolved" ]] || {
+    echo "Image SPDX document resolves outside the deploy directory: $spdx_source" >&2
+    exit 1
+}
 [[ -d "$license_source" ]] || {
         echo "Image license evidence missing or empty: $license_source" >&2
         exit 1
@@ -712,21 +717,13 @@ cve_database="$tmp_dir/deploy/sbom-cve-check/databases"
 }
 spdx_source_name=${spdx_source##*/}
 tar -C "$deploy_dir" --sort=name --mtime=@0 --owner=0 --group=0 \
-    --numeric-owner -cf - "$spdx_source_name" | \
+    --numeric-owner --dereference -cf - "$spdx_source_name" | \
     zstd --quiet --stdout > "$staging_dir/$spdx_export"
 tar -C "$license_source" --sort=name --mtime=@0 --owner=0 --group=0 \
     --numeric-owner -cJf "$staging_dir/$license_export" .
-spdx_entries="$staging_dir/.spdx.entries"
 license_entries="$staging_dir/.license.entries"
 normalized_license_entries="$staging_dir/.license.entries.normalized"
-zstd --test --quiet "$staging_dir/$spdx_export"
-zstd --decompress --stdout --quiet "$staging_dir/$spdx_export" |
-    tar -tf - > "$spdx_entries"
-validate_archive_paths "$spdx_entries" "SPDX"
-grep -Eq '(^|/)[^/]+\.spdx\.json$' "$spdx_entries" || {
-    echo "SPDX archive contains no SPDX JSON document" >&2
-    exit 1
-}
+validate_spdx_bundle "$staging_dir/$spdx_export" "$board"
 xz --test "$staging_dir/$license_export"
 tar -tJf "$staging_dir/$license_export" > "$license_entries"
 validate_archive_paths "$license_entries" "License"
@@ -739,7 +736,7 @@ for required_license_entry in \
         exit 1
     }
 done
-rm -f -- "$spdx_entries" "$license_entries" "$normalized_license_entries"
+rm -f -- "$license_entries" "$normalized_license_entries"
 cp -L -- "$cve_source" "$staging_dir/$cve_export"
 cve_gate_checked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 python3 "$source_root/scripts/inspect-cve-database.py" \

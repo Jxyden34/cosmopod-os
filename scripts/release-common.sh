@@ -25,6 +25,13 @@ validate_https_origin() {
     fi
 }
 
+# Validate the payload, not just tar member names (which can name dangling links).
+validate_spdx_bundle() {
+    local archive=$1 board=$2
+    zstd --decompress --stdout --quiet "$archive" |
+        python3 "$(dirname -- "${BASH_SOURCE[0]}")/validate-spdx.py" --board "$board"
+}
+
 # Exact repository files allowed to influence a release build. Keeping this
 # list shared prevents builder, validator, and offline signer policy drift.
 release_input_paths() {
@@ -37,6 +44,7 @@ release_input_paths() {
     printf '%s\n' \
         scripts/build.sh \
         scripts/release-common.sh \
+        scripts/validate-spdx.py \
         "scripts/requirements-kas-$kas_version-linux-x86_64.txt" \
         scripts/verify-kas-install.py \
         scripts/check-cve-report.py \

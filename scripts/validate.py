@@ -249,7 +249,17 @@ def check_vm_image_scoping() -> None:
         fail("Hyper-V kernel fragment must be scoped to the x86 VM")
     if "SRCREV_machine:genericx86-64" in kernel_append or \
        "LINUX_VERSION:genericx86-64" in kernel_append:
-        fail("VM kernel must follow the pinned Yocto 6.0 LTS metadata")
+        fail("VM security source overrides must be scoped to the 6.18 recipe")
+    kernel_security = (
+        ROOT / "meta-cosmopod/recipes-kernel/linux/linux-yocto_6.18.bbappend"
+    ).read_text(encoding="utf-8")
+    for kernel_update in (
+        'SRCREV_machine:genericx86-64 = "5b95344d2d0cfbe5889e3eb5a2ea3939dc3412f0"',
+        'SRCREV_meta:genericx86-64 = "185549fc38a492dc3e431b32ac6774620ae6b468"',
+        'LINUX_VERSION:genericx86-64 = "6.18.48"',
+    ):
+        if kernel_update not in kernel_security:
+            fail(f"VM kernel stable source pair is incomplete: {kernel_update}")
     for kernel_control in (
         "CONFIG_HYPERVISOR_GUEST=y",
         "CONFIG_HYPERV_NET=y",
@@ -389,6 +399,9 @@ def check_release_provenance() -> None:
         "Unsafe or symlinked cache directory",
         'find . -maxdepth 1 -type f ! -name SHA256SUMS',
         "spdx.tar.zst",
+        "--numeric-owner --dereference -cf -",
+        "validate_spdx_bundle",
+        "Image SPDX document resolves outside the deploy directory",
         "cve_gate_as_of=",
         "BUILD-KAS-OVERLAY.yml",
         "kas_overlay_sha256=",
@@ -420,6 +433,8 @@ def check_release_provenance() -> None:
         "validate_https_origin",
         "git_source_fingerprint",
         "release_input_paths",
+        "validate_spdx_bundle",
+        "scripts/validate-spdx.py",
         "scripts/requirements-kas-$kas_version-linux-x86_64.txt",
         "scripts/check-cve-report.py",
         "security/cve-waivers.json",
@@ -445,6 +460,7 @@ def check_release_provenance() -> None:
         "Release directory does not match the approved unsigned Pi file set",
         "KAS overlay does not reproduce from recorded build inputs",
         "spdx_bundle_sha256=",
+        "validate_spdx_bundle",
         "cve_database_evidence_sha256=",
         "format=cosmopod-cve-gate-v4",
         "--database-evidence",
@@ -465,7 +481,7 @@ def check_release_provenance() -> None:
         "Signed Pi release sidecars are incomplete",
         "validate_checksum_index",
         "SHA256SUMS.sig",
-        "SPDX archive contains no SPDX JSON document",
+        "validate_spdx_bundle",
         "database_fresh=true",
         "coverage_complete=true",
         "format=cosmopod-cve-gate-v4",

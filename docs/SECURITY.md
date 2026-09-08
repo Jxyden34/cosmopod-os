@@ -56,6 +56,14 @@ count; signing and clean release promotion remain blocked.
 
 ## Provenance boundary
 
+SPDX bundles must contain the actual, nonempty board-matched JSON document,
+not a symlink to a document left in the build cache. Builder, artifact validator,
+and offline signer share the same payload check, including the SPDX 3.0.1
+document, SBOM root, and package graph. This is an export-contract check, not a
+complete SPDX schema validator. The 0.57.0 development bundles failed this
+requirement; their old name-only validation result is insufficient release
+evidence. Rebuild them with the corrected exporter; do not promote them.
+
 The initial builder manifest and checksum index do not authenticate builder
 identity or prove reproducibility. Offline signing requires independently
 approved builder-index and unsigned-artifact hashes. The signer then

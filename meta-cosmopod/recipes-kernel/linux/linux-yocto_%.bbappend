@@ -6,5 +6,4 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 # filesystem is available.
 SRC_URI:append:genericx86-64 = " file://cosmopod-hyperv.cfg"
 
-# Follow the kernel revision selected by the pinned Yocto 6.0 LTS metadata.
-# The local fragment adds only the VM guest drivers Cosmopod needs.
+# Version-specific stable security updates live in linux-yocto_6.18.bbappend.
