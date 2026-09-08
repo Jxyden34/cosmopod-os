@@ -86,6 +86,21 @@ that one locale in the WSL distro (no package install is needed):
 wsl.exe -d Ubuntu -u root -- localedef -i en_US -f UTF-8 en_US.UTF-8
 ```
 
+On a Linux builder without sudo, use the host's `localedef` to generate a
+private locale, then export its parent directory for the build process:
+
+```bash
+locale_root=$(mktemp -d /mnt/nvmestorage/cosmopod-os-cache/host-locales.XXXXXX)
+/usr/bin/localedef --no-archive -i en_US -f UTF-8 "$locale_root/en_US.utf8"
+export LOCPATH="$locale_root"
+/usr/bin/python3 -c 'import locale; locale.setlocale(locale.LC_ALL, "en_US.UTF-8")'
+```
+
+This requires installed host locale definitions but changes neither the system
+locale archive nor the default language. Keep the directory while builds use
+it. KAS explicitly forwards `LOCPATH`; the native build preflight tests the same
+host Python used by KAS instead of trusting the SDK's separate locale listing.
+
 ## Validate source
 
 ```powershell

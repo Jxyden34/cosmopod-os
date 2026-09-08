@@ -566,10 +566,14 @@ else
     }
     ln -sfn -- "$buildtools_tar" "$hosttools_dir/tar"
 
-    if ! locale -a | grep -Eiq '^en_US\.utf-?8$'; then
+    # KAS runs with host Python, not the SDK's locale utility. An SDK listing
+    # en_US does not prove the host interpreter can load it.
+    if ! "$host_python" -c 'import locale; locale.setlocale(locale.LC_ALL, "en_US.UTF-8")'; then
         cat >&2 <<'EOF'
-BitBake requires en_US.UTF-8. Generate it once in this WSL distro:
+BitBake's host Python requires en_US.UTF-8. Generate it once in this WSL distro:
   wsl.exe -d Ubuntu -u root -- localedef -i en_US -f UTF-8 en_US.UTF-8
+Without sudo, generate a private locale using host localedef and export LOCPATH
+before building; see docs/BUILD.md. KAS forwards only this explicit locale path.
 EOF
         exit 1
     fi

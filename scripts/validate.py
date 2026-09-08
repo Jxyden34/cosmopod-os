@@ -425,10 +425,14 @@ def check_release_provenance() -> None:
         'CVE accumulator path is unexpectedly a directory',
         "release_qualified=false",
         "Development media is unqualified",
+        '"$host_python" -c \'import locale; locale.setlocale(locale.LC_ALL, "en_US.UTF-8")\'',
     )
     for marker in required:
         if marker not in build:
             fail(f"release provenance/export control missing: {marker}")
+    kas_common = (ROOT / "kas/common.yml").read_text(encoding="utf-8")
+    if "  LOCPATH: null" not in kas_common:
+        fail("KAS must forward the optional user-local host locale path")
     for marker in (
         "validate_https_origin",
         "git_source_fingerprint",
