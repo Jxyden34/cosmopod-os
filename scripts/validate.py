@@ -388,6 +388,7 @@ def check_release_provenance() -> None:
         "--mender-server-url",
         'source "$script_dir/release-common.sh"',
         "release_input_paths",
+        '${#release_inputs[@]} == 11',
         "flock --exclusive --nonblock",
         "Release source changed while the build was running",
         "build_override_vars=(",

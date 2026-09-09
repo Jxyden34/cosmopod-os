@@ -888,7 +888,7 @@ verify_export_invariants
     mapfile -t release_inputs < <(
         release_input_paths "${kas_file#"$source_root"/}" "$KAS_VERSION"
     )
-    ((${#release_inputs[@]} == 10)) || {
+    ((${#release_inputs[@]} == 11)) || {
         echo "Shared release input policy returned an invalid file set" >&2
         exit 1
     }
