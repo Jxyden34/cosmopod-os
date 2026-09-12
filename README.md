@@ -35,7 +35,7 @@ balenaEtcher, or `dd`. The ISO is for x86-64 VMs only.
 
 ## Included
 
-- Yocto Project 5.0 Scarthgap LTS, pinned by immutable commits
+- Yocto Project 6.0 Wrynose LTS, pinned by immutable commits
 - Patched KAS 5.4 bootstrap with digest-pinned container and hash-locked native wheels
 - Linux, systemd, U-Boot, NetworkManager, nftables, chrony
 - Wayland with Weston and VC4 KMS graphics
