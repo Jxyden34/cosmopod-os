@@ -203,7 +203,7 @@ def check_vm_image_scoping() -> None:
         "ExecStart=/usr/bin/seatd -g seat",
         "Environment=SEATD_VTBOUND=0",
         "while [ ! -S /run/seatd.sock ]",
-        "TimeoutStartSec=10",
+        "TimeoutStartSec=90",
         "NoNewPrivileges=yes",
         "ProtectSystem=strict",
         "RestrictAddressFamilies=AF_UNIX",
