@@ -17,6 +17,11 @@ SRC_URI:remove = " \
     file://CVE-2026-6429-dependent.patch \
     file://CVE-2026-6429.patch \
     file://CVE-2026-7168.patch \
+    file://CVE-2026-4873.patch \
+    file://CVE-2026-8286.patch \
+    file://CVE-2026-8927.patch \
+    file://CVE-2026-8932-dependent.patch \
+    file://CVE-2026-8932.patch \
 "
 SRC_URI[sha256sum] = "f7ef3ae8a22e521f289803fe93543eb64c329b58aa73a9e224dfd915a2a5f4f7"
 

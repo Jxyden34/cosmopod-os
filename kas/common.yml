@@ -17,7 +17,7 @@ repos:
 
   openembedded-core:
     url: https://git.openembedded.org/openembedded-core.git
-    commit: f09a0f28aeb54ddd90415dd458338e1565bb5a49
+    commit: 9da814ca3685ada3fce46b8987f04ed3d57247b7
     layers:
       meta:
 
@@ -83,7 +83,7 @@ local_conf_header:
     MENDER_BOOT_PART_SIZE_MB = "256"
     MENDER_DATA_PART_SIZE_MB = "1024"
 
-    COSMOPOD_VERSION ?= "0.62.0-dev"
+    COSMOPOD_VERSION ?= "0.63.0-dev"
     MENDER_ARTIFACT_NAME ?= "cosmopod-os-${COSMOPOD_VERSION}-${MACHINE}"
     MENDER_SERVER_URL ?= "https://kys.dpdns.org"
     MENDER_TENANT_TOKEN ?= ""
