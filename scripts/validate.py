@@ -254,12 +254,22 @@ def check_vm_image_scoping() -> None:
         ROOT / "meta-cosmopod/recipes-kernel/linux/linux-yocto_6.18.bbappend"
     ).read_text(encoding="utf-8")
     for kernel_update in (
-        'SRCREV_machine:genericx86-64 = "5b95344d2d0cfbe5889e3eb5a2ea3939dc3412f0"',
-        'SRCREV_meta:genericx86-64 = "185549fc38a492dc3e431b32ac6774620ae6b468"',
-        'LINUX_VERSION:genericx86-64 = "6.18.48"',
+        'SRCREV_machine:genericx86-64 = "364c4b44ab2dcc7dfff16076522b62827bcb0e7d"',
+        'SRCREV_meta:genericx86-64 = "2184786cc3deed04926e1cca6c320ed9314da9da"',
+        'LINUX_VERSION:genericx86-64 = "6.18.52"',
     ):
         if kernel_update not in kernel_security:
             fail(f"VM kernel stable source pair is incomplete: {kernel_update}")
+    pi_kernel_security = (
+        ROOT / "meta-cosmopod/recipes-kernel/linux/linux-raspberrypi_6.18.bbappend"
+    ).read_text(encoding="utf-8")
+    for kernel_update in (
+        'SRCREV_machine = "8e8c07957368233228a9af82b9e99209653ef1e7"',
+        'SRCREV_meta = "2184786cc3deed04926e1cca6c320ed9314da9da"',
+        'LINUX_VERSION = "6.18.53"',
+    ):
+        if kernel_update not in pi_kernel_security:
+            fail(f"Pi kernel stable source pair is incomplete: {kernel_update}")
     for kernel_control in (
         "CONFIG_HYPERVISOR_GUEST=y",
         "CONFIG_HYPERV_NET=y",
