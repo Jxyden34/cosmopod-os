@@ -86,6 +86,21 @@ that one locale in the WSL distro (no package install is needed):
 wsl.exe -d Ubuntu -u root -- localedef -i en_US -f UTF-8 en_US.UTF-8
 ```
 
+On a Linux builder without sudo, use the host's `localedef` to generate a
+private locale, then export its parent directory for the build process:
+
+```bash
+locale_root=$(mktemp -d /mnt/nvmestorage/cosmopod-os-cache/host-locales.XXXXXX)
+/usr/bin/localedef --no-archive -i en_US -f UTF-8 "$locale_root/en_US.utf8"
+export LOCPATH="$locale_root"
+/usr/bin/python3 -c 'import locale; locale.setlocale(locale.LC_ALL, "en_US.UTF-8")'
+```
+
+This requires installed host locale definitions but changes neither the system
+locale archive nor the default language. Keep the directory while builds use
+it. KAS explicitly forwards `LOCPATH`; the native build preflight tests the same
+host Python used by KAS instead of trusting the SDK's separate locale listing.
+
 ## Validate source
 
 ```powershell
@@ -254,16 +269,30 @@ formal risk decision explicitly allows online signing.
 ## Dependency updates
 
 All layer revisions in `kas/common.yml` are full commit SHAs. Update them as a
-tested set, never by changing a single layer to a floating branch. Pi 5 also
-depends on its pinned `meta-lts-mixins` revision.
+tested set, never by changing a layer to a floating branch.
 
 `kas/common.yml` explicitly accepts the `synaptics-killswitch` license flag
 needed for the Raspberry Pi Broadcom/Synaptics Wi-Fi firmware. This is a named,
 reviewable acceptance, not a wildcard acceptance of restricted licenses.
 
-Scarthgap is used as the first hardware baseline because its Mender Raspberry
-Pi integration is established. Qualify a full Yocto LTS migration separately;
-do not mix Wrynose layers into a Scarthgap build.
+The current baseline is Yocto 6.0 Wrynose. Preserve its compatible layer set;
+do not mix in Scarthgap metadata or unreviewed master revisions.
+
+## Version 0.60.0 validation record
+
+Blackwall completed development builds and artifact integrity validation for
+Pi 4, Pi 5, and x86-64 at source commit
+`2a95d10fb578367238d78fde20103dad2ed2a19e`.
+The VM ISO and both QCOW2 boot/persistence smoke tests passed. These checks
+do not prove physical Pi qualification for this version.
+
+The fresh build-time CVE gates failed: 115 denied findings on each Pi target
+and 188 on VM, with zero waivers. These reports are historical build evidence,
+not a substitute for a fresh scan before release promotion. Production
+signing, a working Mender backend, signed OTA/rollback and physical hardware
+qualification remain required. Version 0.61.0 starts remediation with the
+upstream curl 8.22.0 and OpenSSL 3.5.8 security updates; its build and security
+results must be established independently.
 
 ## Version 0.43.0 validation record
 

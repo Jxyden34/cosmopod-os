@@ -9,7 +9,9 @@ Type=simple
 Environment=SEATD_VTBOUND=0
 ExecStart=/usr/bin/seatd -g seat -l error
 ExecStartPost=/bin/sh -c 'while [ ! -S /run/seatd.sock ]; do sleep 0.05; done'
-TimeoutStartSec=10
+# ISO cold boots under software emulation can exceed ten seconds before the
+# socket is ready. Keep readiness mandatory, with a bounded startup budget.
+TimeoutStartSec=90
 Restart=on-failure
 RestartSec=1
 UMask=0007

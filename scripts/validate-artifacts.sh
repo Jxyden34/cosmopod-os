@@ -44,7 +44,7 @@ case "$channel" in
     *) usage; exit 2 ;;
 esac
 out_dir="$root/out/$version/$board-$channel"
-build_root=${COSMOPOD_BUILD_ROOT:-"$HOME/.cache/cosmopod-os"}
+build_root=$(realpath -e -- "${COSMOPOD_BUILD_ROOT:-"$HOME/.cache/cosmopod-os"}")
 tmp_dir="$build_root/tmp"
 temp_files=()
 
@@ -118,6 +118,50 @@ validate_checksum_index() {
         exit 1
     }
     sha256sum --check --strict SHA256SUMS
+}
+
+validate_vm_smoke_evidence() {
+    local smoke_dir actual_entries expected_entries entry hash path commit
+    smoke_dir="$out_dir/smoke"
+    [[ -d "$smoke_dir" && ! -L "$smoke_dir" ]] || {
+        echo "VM smoke-test evidence is missing" >&2
+        exit 1
+    }
+    expected_entries=$(printf '%s\n' \
+        SHA256SUMS manifest.txt results.tap \
+        iso.qemu.log iso.screen.ppm iso.serial.log iso.serial.raw.log iso.ssh-hostkeys iso.weston.log \
+        qcow2.boot1.qemu.log qcow2.boot1.screen.ppm qcow2.boot1.serial.log qcow2.boot1.serial.raw.log qcow2.boot1.ssh-hostkeys qcow2.boot1.weston.log \
+        qcow2.boot2.qemu.log qcow2.boot2.screen.ppm qcow2.boot2.serial.log qcow2.boot2.serial.raw.log qcow2.boot2.ssh-hostkeys qcow2.boot2.weston.log | sort)
+    actual_entries=$(find "$smoke_dir" -mindepth 1 -maxdepth 1 -printf '%f\n' | sort)
+    [[ "$actual_entries" == "$expected_entries" ]] || {
+        echo "VM smoke evidence file set is not approved" >&2
+        exit 1
+    }
+    while IFS= read -r entry; do
+        [[ -f "$smoke_dir/$entry" && ! -L "$smoke_dir/$entry" ]] || {
+            echo "VM smoke evidence entry is not a regular file: $entry" >&2
+            exit 1
+        }
+    done <<< "$expected_entries"
+    [[ -s "$smoke_dir/SHA256SUMS" ]] || {
+        echo "VM smoke evidence checksum index is missing" >&2
+        exit 1
+    }
+    while read -r hash path; do
+        [[ "$hash" =~ ^[0-9a-f]{64}$ && "$path" == "$smoke_dir/"* ]] || {
+            echo "VM smoke evidence checksum index contains an unsafe record" >&2
+            exit 1
+        }
+    done < "$smoke_dir/SHA256SUMS"
+    sha256sum --check --strict "$smoke_dir/SHA256SUMS"
+    grep -Fqx 'TAP version 13' "$smoke_dir/results.tap"
+    grep -Fqx '1..2' "$smoke_dir/results.tap"
+    grep -Fqx 'ok 1 - iso' "$smoke_dir/results.tap"
+    grep -Fqx 'ok 2 - qcow2' "$smoke_dir/results.tap"
+    commit=$(manifest_value source_commit)
+    grep -Fqx "source_commit=$commit" "$smoke_dir/manifest.txt"
+    grep -Fqx 'source_dirty=false' "$smoke_dir/manifest.txt"
+    grep -Fqx 'media=all' "$smoke_dir/manifest.txt"
 }
 
 validate_archive_paths() {
@@ -266,9 +310,9 @@ validate_security_evidence() {
     local cve_database_age_seconds cve_database_max_age_seconds
     local kas_overlay kas_overlay_sha256 bb_number_threads parallel_make_jobs
     local mender_server_url device_type evidence_name evidence_path replay
-    local expected_entries actual_entries expected_overlay_text
+    local expected_entries actual_entries checksum_entries expected_overlay_text
     local signed_artifact signed_record signed_checksum signed_index_signature signed_count
-    local entry spdx_entries license_entries normalized_license_entries required_license_entry license_manifest
+    local entry license_entries normalized_license_entries required_license_entry license_manifest
     for tool in awk cat cmp find grep mktemp openssl python3 sha256sum sort tar xz zstd; do
         require "$tool"
     done
@@ -298,7 +342,7 @@ validate_security_evidence() {
             "Cosmopod-OS-$version-vm-x86_64.qcow2" \
             "$spdx_bundle" "$license_archive" "$cve_report" "$cve_gate" \
             "$cve_database_evidence" \
-            "$kas_overlay" BUILD-MANIFEST.txt SHA256SUMS | sort)
+            "$kas_overlay" BUILD-MANIFEST.txt SHA256SUMS smoke | sort)
     else
         signed_artifact="Cosmopod-OS-$version-$board.mender"
         signed_record="$signed_artifact.signing-record.txt"
@@ -332,12 +376,15 @@ validate_security_evidence() {
         exit 1
     }
     while IFS= read -r entry; do
+        [[ "$entry" == smoke ]] && continue
         [[ -f "$out_dir/$entry" && ! -L "$out_dir/$entry" ]] || {
             echo "Release entry is not one regular, non-symlinked file: $entry" >&2
             exit 1
         }
     done <<< "$expected_entries"
-    validate_checksum_index "$expected_entries"
+    checksum_entries=$(printf '%s\n' "$expected_entries" | grep -Fvx smoke)
+    validate_checksum_index "$checksum_entries"
+    [[ "$board" != vm ]] || validate_vm_smoke_evidence
     if [[ "$board" != vm && "$signed_count" -eq 4 ]]; then
         openssl dgst -sha256 \
             -verify "$root/meta-cosmopod/recipes-mender/mender/files/artifact-verify-key.pem" \
@@ -378,17 +425,9 @@ EOF
         echo "KAS overlay does not reproduce from recorded build inputs" >&2
         exit 1
     }
-    spdx_entries=$(mktemp "${TMPDIR:-/tmp}/cosmopod-spdx-entries.XXXXXX")
     license_entries=$(mktemp "${TMPDIR:-/tmp}/cosmopod-license-entries.XXXXXX")
-    temp_files+=("$spdx_entries" "$license_entries")
-    zstd --test --quiet "$out_dir/$spdx_bundle"
-    zstd --decompress --stdout --quiet "$out_dir/$spdx_bundle" |
-        tar -tf - > "$spdx_entries"
-    validate_archive_paths "$spdx_entries" "SPDX"
-    grep -Eq '(^|/)[^/]+\.spdx\.json$' "$spdx_entries" || {
-        echo "SPDX archive contains no SPDX JSON document" >&2
-        exit 1
-    }
+    temp_files+=("$license_entries")
+    validate_spdx_bundle "$out_dir/$spdx_bundle" "$board"
     xz --test --verbose "$out_dir/$license_archive"
     tar -tJf "$out_dir/$license_archive" > "$license_entries"
     validate_archive_paths "$license_entries" "License"
@@ -633,7 +672,7 @@ validate_vm() {
     grep -Fxiq '/rootfs.img' <<<"$listing"
 
     os_release=$(find "$tmp_dir/work/genericx86_64-poky-linux/cosmopod-image" \
-        -path '*/rootfs/etc/os-release' -type f -print -quit)
+        -path '*/rootfs/usr/lib/os-release' -type f -print -quit)
     [[ -n "$os_release" ]]
     grep -q '^ID=cosmopod$' "$os_release"
     grep -q '^NAME="Cosmopod OS"$' "$os_release"

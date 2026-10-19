@@ -476,14 +476,7 @@ for evidence_name in "$spdx_bundle" "$license_archive" "$cve_report" \
     }
 done
 
-zstd --test --quiet "$release_temp_dir/$spdx_bundle"
-zstd --decompress --stdout --quiet "$release_temp_dir/$spdx_bundle" |
-    tar -tf - > "$temp_dir/spdx.entries"
-validate_archive_paths "$temp_dir/spdx.entries" "SPDX"
-grep -Eq '(^|/)[^/]+\.spdx\.json$' "$temp_dir/spdx.entries" || {
-    echo "SPDX archive contains no SPDX JSON document" >&2
-    exit 1
-}
+validate_spdx_bundle "$release_temp_dir/$spdx_bundle" "$expected_board"
 
 xz --test "$release_temp_dir/$license_archive"
 tar -tJf "$release_temp_dir/$license_archive" > "$temp_dir/license.entries"

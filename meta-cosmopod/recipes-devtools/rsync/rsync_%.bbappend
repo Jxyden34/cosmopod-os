@@ -1,4 +1,5 @@
-PV = "3.4.4"
+# Upstream rsync 3.5.0 security release; retain the existing product features.
+PV = "3.5.0"
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 
@@ -7,4 +8,4 @@ SRC_URI:remove = " \
     file://0001-Add-missing-prototypes-to-function-declarations.patch \
 "
 SRC_URI:append = " file://0001-Add-missing-prototypes-to-function-declarations.patch"
-SRC_URI[sha256sum] = "bd88cf82fa653da32314fb229136407c5c90f80d1758d8f4b091767877d8fa96"
+SRC_URI[sha256sum] = "c7ffd1ef653e99540f661e47cb00b7f9cad1ee6b972399b16f93d672656e0d33"
