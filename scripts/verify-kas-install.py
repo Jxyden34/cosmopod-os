@@ -13,7 +13,7 @@ EXPECTED = {
     "attrs": "26.1.0",
     "distro": "1.9.0",
     "gitdb": "4.0.12",
-    "gitpython": "3.1.52",
+    "gitpython": "3.1.58",
     "jsonschema": "4.25.1",
     "jsonschema-specifications": "2025.9.1",
     "kas": "5.4",
