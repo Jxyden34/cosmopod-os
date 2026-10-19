@@ -44,7 +44,7 @@ case "$channel" in
     *) usage; exit 2 ;;
 esac
 out_dir="$root/out/$version/$board-$channel"
-build_root=${COSMOPOD_BUILD_ROOT:-"$HOME/.cache/cosmopod-os"}
+build_root=$(realpath -e -- "${COSMOPOD_BUILD_ROOT:-"$HOME/.cache/cosmopod-os"}")
 tmp_dir="$build_root/tmp"
 temp_files=()
 
