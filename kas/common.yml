@@ -23,7 +23,7 @@ repos:
 
   bitbake:
     url: https://git.openembedded.org/bitbake.git
-    commit: 713fbbdb9ecc195ceb2216a2345e0d79dbee2135
+    commit: 6e260eb6ab1631607ea414d9ff8ede1155faa5d9
     layers:
       bitbake: disabled
 
