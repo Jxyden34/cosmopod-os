@@ -267,6 +267,7 @@ def check_vm_image_scoping() -> None:
         'SRCREV_machine = "5d64d1ea73716526ed9c0ed184a9cb5f6042e32c"',
         'SRCREV_meta = "5978c5f530b91cfb62213506ee6f157897432ba3"',
         'LINUX_VERSION = "6.18.57"',
+        'require recipes-kernel/linux/cve-exclusion.inc',
     ):
         if kernel_update not in pi_kernel_security:
             fail(f"Pi kernel stable source pair is incomplete: {kernel_update}")
