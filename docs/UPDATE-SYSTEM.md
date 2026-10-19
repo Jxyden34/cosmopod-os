@@ -189,7 +189,10 @@ Mender recommends `ArtifactCommit_Enter` for post-boot sanity checks. Exit `0` p
 
 ### Health contract
 
-The implemented script observes continuous health for 120 seconds, not one successful instant. It exits non-zero on timeout or any hard failure. It checks:
+The implemented script observes continuous health for 120 seconds using the
+kernel's monotonic uptime clock. A 300-second outer timeout also bounds stalled
+service and storage checks, with a five-second forced-termination grace period.
+It exits non-zero on timeout or failure to reach the stable window. It checks:
 
 - `/data` is mounted read-write and passes a real write/sync/remove probe;
 - `mender-authd` and `mender-updated` are active;
