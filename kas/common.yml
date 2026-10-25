@@ -6,6 +6,10 @@ distro: cosmopod
 target:
   - cosmopod-image
 
+# Optional user-local host locale for builders without administrator access.
+env:
+  LOCPATH: null
+
 repos:
   cosmopod-os:
     layers:
@@ -13,26 +17,26 @@ repos:
 
   openembedded-core:
     url: https://git.openembedded.org/openembedded-core.git
-    commit: f09a0f28aeb54ddd90415dd458338e1565bb5a49
+    commit: 636e5d3b12d54951c13d57346648bc29a0e6b24e
     layers:
       meta:
 
   bitbake:
     url: https://git.openembedded.org/bitbake.git
-    commit: fae9db3168dbff1b8c76fe9c6726a9687ff97514
+    commit: 6e260eb6ab1631607ea414d9ff8ede1155faa5d9
     layers:
       bitbake: disabled
 
   meta-yocto:
     url: https://git.yoctoproject.org/meta-yocto.git
-    commit: 1b132647002eea43a2c7a7f857f63f42dacbc26c
+    commit: 7c25b11156553145fa6b241a2d4f65d94438f804
     layers:
       meta-poky:
       meta-yocto-bsp:
 
   meta-openembedded:
     url: https://git.openembedded.org/meta-openembedded.git
-    commit: af8b6d6b2f0b11595b0a0d5b82efa3129d52a628
+    commit: f28a144aa0a0ae05ca2ee91e1aef6aa05f6a12db
     layers:
       meta-oe:
       meta-python:
@@ -42,17 +46,17 @@ repos:
 
   meta-raspberrypi:
     url: https://github.com/agherzan/meta-raspberrypi.git
-    commit: f62c67921474370829d24a4fa01ef88543f3906b
+    commit: 919588393f41b48cb6c5d832aa35e58a19b6762d
 
   meta-mender:
     url: https://github.com/mendersoftware/meta-mender.git
-    commit: 62719a7450e798202907f55d4dad1b0488102411
+    commit: af44bda9237dfbdb09a6c6988ebfcb2486d1ea7d
     layers:
       meta-mender-core:
 
   meta-mender-community:
     url: https://github.com/theyoctojester/meta-mender-community.git
-    commit: 78b2895adcf2053595e1508bc5846aa1c3d033ba
+    commit: f6860e099fe97260612380dd0092e854831bd9c0
     layers:
       meta-mender-raspberrypi:
 
@@ -79,12 +83,12 @@ local_conf_header:
     MENDER_BOOT_PART_SIZE_MB = "256"
     MENDER_DATA_PART_SIZE_MB = "1024"
 
-    COSMOPOD_VERSION ?= "0.55.0-dev"
+    COSMOPOD_VERSION ?= "0.74.0-dev"
     MENDER_ARTIFACT_NAME ?= "cosmopod-os-${COSMOPOD_VERSION}-${MACHINE}"
-    MENDER_SERVER_URL ?= "https://kys.dpdns.org"
-    MENDER_TENANT_TOKEN ?= ""
-    MENDER_UPDATE_POLL_INTERVAL_SECONDS = "1800"
-    MENDER_INVENTORY_POLL_INTERVAL_SECONDS = "28800"
+    # Standalone installation uses signed public release files, not a backend.
+    MENDER_SERVER_URL = ""
+    MENDER_TENANT_TOKEN = ""
+    SYSTEMD_AUTO_ENABLE:pn-mender = "disable"
     PACKAGECONFIG:remove:pn-openssh = "systemd-sshd-socket-mode"
     PACKAGECONFIG:append:pn-openssh = " systemd-sshd-service-mode"
 
@@ -93,9 +97,8 @@ local_conf_header:
     SYSTEMD_AUTO_ENABLE:pn-nfs-utils = "disable"
     SYSTEMD_AUTO_ENABLE:pn-rpcbind = "disable"
 
-    # Preserve backend selection across A/B rootfs replacement.
-    MENDER_CONFIGURATION_VARS:append = " TenantToken"
-    MENDER_PERSISTENT_CONFIGURATION_VARS:append = " ServerURL TenantToken"
+    # Do not migrate an old managed endpoint into newly built configuration.
+    MENDER_PERSISTENT_CONFIGURATION_VARS:remove = "ServerURL TenantToken"
 
     # Factory image includes one FAT boot partition, two rootfs slots, and data.
     IMAGE_FSTYPES:remove = "rpi-sdimg"

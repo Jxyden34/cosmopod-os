@@ -7,12 +7,14 @@ SRC_URI = " \
     file://cosmopod-firstboot.service \
     file://cosmopod-persist.sh \
     file://cosmopod-persist.service \
+    file://cosmopod-weston \
     file://cosmopod.conf.example \
     file://50-cosmopod-sshd.conf \
     file://cosmopod-sudoers \
     file://cosmopod-profile \
     file://cosmopod-readme.txt \
     file://ArtifactCommit_Enter_50_cosmopod-health \
+    file://cosmopod-update.py \
 "
 
 inherit systemd mender-state-scripts
@@ -27,12 +29,21 @@ RDEPENDS:${PN} += " \
     openssh-keygen \
     python3-core \
     util-linux \
+    python3-crypt \
+    python3-io \
+    python3-json \
+    curl \
+    ca-certificates \
+    openssl-bin \
 "
 
 do_install() {
     install -d ${D}${libexecdir}
     install -m 0755 ${UNPACKDIR}/cosmopod-firstboot.py ${D}${libexecdir}/cosmopod-firstboot
     install -m 0755 ${UNPACKDIR}/cosmopod-persist.sh ${D}${libexecdir}/cosmopod-persist
+    install -m 0755 ${UNPACKDIR}/cosmopod-weston ${D}${libexecdir}/cosmopod-weston
+    install -d ${D}${bindir}
+    install -m 0755 ${UNPACKDIR}/cosmopod-update.py ${D}${bindir}/cosmopod-update
 
     install -d ${D}${systemd_system_unitdir}
     install -m 0644 ${UNPACKDIR}/cosmopod-firstboot.service ${D}${systemd_system_unitdir}/
@@ -75,15 +86,12 @@ After=cosmopod-persist.service
 User=cosmopod
 Group=cosmopod
 WorkingDirectory=/home/cosmopod
+ExecStart=
+ExecStart=${libexecdir}/cosmopod-weston
 EOF
 
     for unit in mender-authd.service mender-updated.service; do
-        install -d ${D}${sysconfdir}/systemd/system/$unit.d
-        cat > ${D}${sysconfdir}/systemd/system/$unit.d/cosmopod.conf <<'EOF'
-[Unit]
-Wants=cosmopod-firstboot.service
-After=cosmopod-firstboot.service
-EOF
+        ln -s /dev/null ${D}${sysconfdir}/systemd/system/$unit
     done
 
     install -d ${D}${datadir}/cosmopod/home-seed
@@ -106,6 +114,7 @@ addtask deploy after do_compile before do_build
 FILES:${PN} += " \
     ${libexecdir}/cosmopod-firstboot \
     ${libexecdir}/cosmopod-persist \
+    ${libexecdir}/cosmopod-weston \
     ${sysconfdir}/systemd/system \
     ${datadir}/cosmopod \
 "

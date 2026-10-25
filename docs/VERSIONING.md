@@ -13,8 +13,9 @@ Cosmopod OS uses semantic versions.
   checksums, and artifact filenames during the build.
 - `1.0.0` is reserved for the first fully qualified release. It requires
   successful Raspberry Pi 4 and Pi 5 image builds, x86-64 ISO/VM boot tests,
-  Wayland, networking and SSH checks, signed A/B OTA validation, production
-  backend validation, security/release gates, and published GitHub records.
+  Wayland, networking and SSH checks, signed standalone A/B update, commit and
+  rollback validation, security/release gates, and published GitHub records.
+  A hosted Mender backend is not required.
 
 The repository `VERSION` file is the default for build, smoke-test, signing,
 and validation scripts. An explicit `--version` or `-Version` creates a named

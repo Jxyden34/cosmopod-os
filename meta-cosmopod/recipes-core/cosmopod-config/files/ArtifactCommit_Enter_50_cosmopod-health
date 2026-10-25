@@ -4,9 +4,32 @@ set -u
 deadline=300
 required_stable=120
 interval=5
+
+# Bound service queries and storage probes as well as the polling sleeps.
+if [ "${1:-}" != --worker ]; then
+    timeout --kill-after=5 "${deadline}s" "$0" --worker
+    status=$?
+    if [ "$status" -eq 124 ] || [ "$status" -eq 137 ]; then
+        printf 'Cosmopod health deadline reached; Mender must roll back\n' >&2
+        logger -t cosmopod-health "OS health deadline reached; Mender must roll back"
+    fi
+    exit "$status"
+fi
+
+uptime_ticks() {
+    read -r uptime ignored < /proc/uptime || return 1
+    seconds=${uptime%%.*}
+    fraction=${uptime#*.}
+    # /proc/uptime supplies hundredths; the leading 1 avoids octal parsing.
+    printf '%s\n' "$((seconds * 100 + 1$fraction - 100))"
+}
+
+started=$(uptime_ticks) || exit 1
 elapsed=0
 stable=0
-services="data.mount cosmopod-persist.service NetworkManager.service sshd.service weston.service mender-authd.service mender-updated.service"
+stable_since=
+next_log=0
+services="data.mount cosmopod-persist.service NetworkManager.service sshd.service weston.service"
 
 while [ "$elapsed" -lt "$deadline" ]; do
     healthy=true
@@ -46,27 +69,34 @@ while [ "$elapsed" -lt "$deadline" ]; do
 
     if [ "$healthy" = true ]; then
         probe="/data/cosmopod/.ota-health.$$"
-        if printf '%s\n' "$elapsed" > "$probe" && sync "$probe" && rm -f "$probe"; then
-            stable=$((stable + interval))
-        else
-            stable=0
+        if ! { printf '%s\n' "$elapsed" > "$probe" && sync "$probe" && rm -f "$probe"; }; then
+            healthy=false
             reason="/data write-sync-remove probe failed"
         fi
+    fi
+
+    now=$(uptime_ticks) || exit 1
+    elapsed=$(((now - started) / 100))
+    if [ "$healthy" = true ]; then
+        [ -n "$stable_since" ] || stable_since=$now
+        stable=$(((now - stable_since) / 100))
     else
+        stable_since=
         stable=0
     fi
 
+    [ "$elapsed" -lt "$deadline" ] || break
     if [ "$stable" -ge "$required_stable" ]; then
         logger -t cosmopod-health "OS health gate passed after ${required_stable}s stable"
         exit 0
     fi
 
-    if [ $((elapsed % 30)) -eq 0 ]; then
+    if [ "$elapsed" -ge "$next_log" ]; then
         printf 'Cosmopod health waiting: stable=%ss reason=%s\n' "$stable" "${reason:-warming up}" >&2
+        next_log=$((elapsed + 30))
     fi
 
     sleep "$interval"
-    elapsed=$((elapsed + interval))
 done
 
 printf 'Cosmopod health failed after %ss: %s\n' "$deadline" "${reason:-stable window not reached}" >&2

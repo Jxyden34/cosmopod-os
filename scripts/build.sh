@@ -17,7 +17,7 @@ requested_channel=auto
 allow_dirty=false
 replace_output=false
 allow_unconfined_task_network=false
-mender_server_url=https://kys.dpdns.org
+mender_server_url=
 bb_threads=${COSMOPOD_BB_NUMBER_THREADS:-6}
 make_jobs=${COSMOPOD_PARALLEL_MAKE_JOBS:-6}
 build_started_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -28,7 +28,6 @@ Usage: scripts/build.sh [--build|--checkout-only] [--engine auto|native|containe
                         [--channel auto|development|release]
                         [--allow-dirty] [--replace-output]
                         [--allow-unconfined-task-network]
-                        [--mender-server-url https://HOST]
                         --board pi4|pi5|vm --version VERSION
 
 Auto uses the kas container when Docker is available, otherwise it installs the
@@ -48,7 +47,6 @@ while [[ $# -gt 0 ]]; do
         --allow-dirty) allow_dirty=true ;;
         --replace-output) replace_output=true ;;
         --allow-unconfined-task-network) allow_unconfined_task_network=true ;;
-        --mender-server-url) mender_server_url=${2:?missing Mender server URL}; shift ;;
         -h|--help) usage; exit 0 ;;
         *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
     esac
@@ -82,10 +80,6 @@ if [[ -z "$version" ]]; then
 fi
 [[ "$version" =~ ^[0-9A-Za-z][0-9A-Za-z._+-]{0,63}$ ]] || {
     echo "Invalid version: $version" >&2
-    exit 2
-}
-validate_https_origin "$mender_server_url" || {
-    echo "Mender server URL must be an HTTPS origin without path, credentials, query, or fragment" >&2
     exit 2
 }
 
@@ -566,10 +560,14 @@ else
     }
     ln -sfn -- "$buildtools_tar" "$hosttools_dir/tar"
 
-    if ! locale -a | grep -Eiq '^en_US\.utf-?8$'; then
+    # KAS runs with host Python, not the SDK's locale utility. An SDK listing
+    # en_US does not prove the host interpreter can load it.
+    if ! "$host_python" -c 'import locale; locale.setlocale(locale.LC_ALL, "en_US.UTF-8")'; then
         cat >&2 <<'EOF'
-BitBake requires en_US.UTF-8. Generate it once in this WSL distro:
+BitBake's host Python requires en_US.UTF-8. Generate it once in this WSL distro:
   wsl.exe -d Ubuntu -u root -- localedef -i en_US -f UTF-8 en_US.UTF-8
+Without sudo, generate a private locale using host localedef and export LOCPATH
+before building; see docs/BUILD.md. KAS forwards only this explicit locale path.
 EOF
         exit 1
     fi
@@ -691,6 +689,11 @@ cve_database_export="Cosmopod-OS-$version-$board-cve-database.txt"
     echo "Image SPDX bundle missing or empty: $spdx_source" >&2
     exit 1
 }
+spdx_source_resolved=$(readlink -f -- "$spdx_source")
+[[ -f "$spdx_source_resolved" && "${spdx_source_resolved%/*}" == "$deploy_dir_resolved" ]] || {
+    echo "Image SPDX document resolves outside the deploy directory: $spdx_source" >&2
+    exit 1
+}
 [[ -d "$license_source" ]] || {
         echo "Image license evidence missing or empty: $license_source" >&2
         exit 1
@@ -712,21 +715,13 @@ cve_database="$tmp_dir/deploy/sbom-cve-check/databases"
 }
 spdx_source_name=${spdx_source##*/}
 tar -C "$deploy_dir" --sort=name --mtime=@0 --owner=0 --group=0 \
-    --numeric-owner -cf - "$spdx_source_name" | \
+    --numeric-owner --dereference -cf - "$spdx_source_name" | \
     zstd --quiet --stdout > "$staging_dir/$spdx_export"
 tar -C "$license_source" --sort=name --mtime=@0 --owner=0 --group=0 \
     --numeric-owner -cJf "$staging_dir/$license_export" .
-spdx_entries="$staging_dir/.spdx.entries"
 license_entries="$staging_dir/.license.entries"
 normalized_license_entries="$staging_dir/.license.entries.normalized"
-zstd --test --quiet "$staging_dir/$spdx_export"
-zstd --decompress --stdout --quiet "$staging_dir/$spdx_export" |
-    tar -tf - > "$spdx_entries"
-validate_archive_paths "$spdx_entries" "SPDX"
-grep -Eq '(^|/)[^/]+\.spdx\.json$' "$spdx_entries" || {
-    echo "SPDX archive contains no SPDX JSON document" >&2
-    exit 1
-}
+validate_spdx_bundle "$staging_dir/$spdx_export" "$board"
 xz --test "$staging_dir/$license_export"
 tar -tJf "$staging_dir/$license_export" > "$license_entries"
 validate_archive_paths "$license_entries" "License"
@@ -739,7 +734,7 @@ for required_license_entry in \
         exit 1
     }
 done
-rm -f -- "$spdx_entries" "$license_entries" "$normalized_license_entries"
+rm -f -- "$license_entries" "$normalized_license_entries"
 cp -L -- "$cve_source" "$staging_dir/$cve_export"
 cve_gate_checked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 python3 "$source_root/scripts/inspect-cve-database.py" \
@@ -847,6 +842,7 @@ verify_export_invariants
     printf 'requested_channel=%s\n' "$requested_channel"
     printf 'release_qualified=%s\n' "$release_qualified"
     printf 'mender_server_url=%s\n' "$mender_server_url"
+    printf 'update_mode=standalone\n'
     printf 'source_commit=%s\n' "$source_commit"
     printf 'source_tree=%s\n' "$source_tree"
     printf 'source_content_sha256=%s\n' "$source_content_sha256"
@@ -887,7 +883,7 @@ verify_export_invariants
     mapfile -t release_inputs < <(
         release_input_paths "${kas_file#"$source_root"/}" "$KAS_VERSION"
     )
-    ((${#release_inputs[@]} == 10)) || {
+    ((${#release_inputs[@]} == 11)) || {
         echo "Shared release input policy returned an invalid file set" >&2
         exit 1
     }

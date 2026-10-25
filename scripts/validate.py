@@ -72,7 +72,7 @@ def check_build_supply_chain() -> None:
     expected_versions = {
         "attrs": "26.1.0",
         "distro": "1.9.0",
-        "gitpython": "3.1.58",
+        "gitpython": "3.2.1",
         "gitdb": "4.0.12",
         "jsonschema": "4.25.1",
         "jsonschema-specifications": "2025.9.1",
@@ -203,7 +203,7 @@ def check_vm_image_scoping() -> None:
         "ExecStart=/usr/bin/seatd -g seat",
         "Environment=SEATD_VTBOUND=0",
         "while [ ! -S /run/seatd.sock ]",
-        "TimeoutStartSec=10",
+        "TimeoutStartSec=90",
         "NoNewPrivileges=yes",
         "ProtectSystem=strict",
         "RestrictAddressFamilies=AF_UNIX",
@@ -219,6 +219,21 @@ def check_vm_image_scoping() -> None:
     ).read_text(encoding="utf-8")
     if "-G video,input,render,seat,wayland weston" not in weston_init:
         fail("Weston service account must join the seatd socket group")
+    weston_recipe = (
+        ROOT / "meta-cosmopod/recipes-graphics/wayland/weston_%.bbappend"
+    ).read_text(encoding="utf-8")
+    if 'PACKAGECONFIG:append = " headless"' not in weston_recipe:
+        fail("Weston must build the headless backend")
+    weston_launcher = (
+        ROOT / "meta-cosmopod/recipes-core/cosmopod-config/files/cosmopod-weston"
+    ).read_text(encoding="utf-8")
+    for weston_control in (
+        "/sys/class/drm/*/status",
+        "--backend=drm",
+        "--backend=headless-backend.so",
+    ):
+        if weston_control not in weston_launcher:
+            fail(f"Cosmopod Weston launcher missing: {weston_control}")
     image_recipe = (
         ROOT / "meta-cosmopod/recipes-core/images/cosmopod-image.bb"
     ).read_text(encoding="utf-8")
@@ -234,7 +249,28 @@ def check_vm_image_scoping() -> None:
         fail("Hyper-V kernel fragment must be scoped to the x86 VM")
     if "SRCREV_machine:genericx86-64" in kernel_append or \
        "LINUX_VERSION:genericx86-64" in kernel_append:
-        fail("VM kernel must follow the pinned Yocto 6.0 LTS metadata")
+        fail("VM security source overrides must be scoped to the 6.18 recipe")
+    kernel_security = (
+        ROOT / "meta-cosmopod/recipes-kernel/linux/linux-yocto_6.18.bbappend"
+    ).read_text(encoding="utf-8")
+    for kernel_update in (
+        'SRCREV_machine:genericx86-64 = "cbba43337e083c0ace9a6cf998850eb1d3f4a0b0"',
+        'SRCREV_meta:genericx86-64 = "5978c5f530b91cfb62213506ee6f157897432ba3"',
+        'LINUX_VERSION:genericx86-64 = "6.18.57"',
+    ):
+        if kernel_update not in kernel_security:
+            fail(f"VM kernel stable source pair is incomplete: {kernel_update}")
+    pi_kernel_security = (
+        ROOT / "meta-cosmopod/recipes-kernel/linux/linux-raspberrypi_6.18.bbappend"
+    ).read_text(encoding="utf-8")
+    for kernel_update in (
+        'SRCREV_machine = "5d64d1ea73716526ed9c0ed184a9cb5f6042e32c"',
+        'SRCREV_meta = "5978c5f530b91cfb62213506ee6f157897432ba3"',
+        'LINUX_VERSION = "6.18.57"',
+        'require recipes-kernel/linux/cve-exclusion.inc',
+    ):
+        if kernel_update not in pi_kernel_security:
+            fail(f"Pi kernel stable source pair is incomplete: {kernel_update}")
     for kernel_control in (
         "CONFIG_HYPERVISOR_GUEST=y",
         "CONFIG_HYPERV_NET=y",
@@ -360,9 +396,10 @@ def check_release_provenance() -> None:
         "--replace-output",
         "Release build refused: source tree is dirty",
         "Release output already exists",
-        "--mender-server-url",
+        "update_mode=standalone",
         'source "$script_dir/release-common.sh"',
         "release_input_paths",
+        '${#release_inputs[@]} == 11',
         "flock --exclusive --nonblock",
         "Release source changed while the build was running",
         "build_override_vars=(",
@@ -374,6 +411,9 @@ def check_release_provenance() -> None:
         "Unsafe or symlinked cache directory",
         'find . -maxdepth 1 -type f ! -name SHA256SUMS',
         "spdx.tar.zst",
+        "--numeric-owner --dereference -cf -",
+        "validate_spdx_bundle",
+        "Image SPDX document resolves outside the deploy directory",
         "cve_gate_as_of=",
         "BUILD-KAS-OVERLAY.yml",
         "kas_overlay_sha256=",
@@ -397,14 +437,20 @@ def check_release_provenance() -> None:
         'CVE accumulator path is unexpectedly a directory',
         "release_qualified=false",
         "Development media is unqualified",
+        '"$host_python" -c \'import locale; locale.setlocale(locale.LC_ALL, "en_US.UTF-8")\'',
     )
     for marker in required:
         if marker not in build:
             fail(f"release provenance/export control missing: {marker}")
+    kas_common = (ROOT / "kas/common.yml").read_text(encoding="utf-8")
+    if "  LOCPATH: null" not in kas_common:
+        fail("KAS must forward the optional user-local host locale path")
     for marker in (
         "validate_https_origin",
         "git_source_fingerprint",
         "release_input_paths",
+        "validate_spdx_bundle",
+        "scripts/validate-spdx.py",
         "scripts/requirements-kas-$kas_version-linux-x86_64.txt",
         "scripts/check-cve-report.py",
         "security/cve-waivers.json",
@@ -420,7 +466,7 @@ def check_release_provenance() -> None:
         "cosmopod-signing-record-v2",
         "Unsigned artifact unexpectedly passed",
         "wrong-key validation",
-        "--approve-server-url",
+        "--standalone",
         "--approve-build-index-sha256",
         "--approve-unsigned-sha256",
         "cp --archive --reflink=auto",
@@ -430,6 +476,7 @@ def check_release_provenance() -> None:
         "Release directory does not match the approved unsigned Pi file set",
         "KAS overlay does not reproduce from recorded build inputs",
         "spdx_bundle_sha256=",
+        "validate_spdx_bundle",
         "cve_database_evidence_sha256=",
         "format=cosmopod-cve-gate-v4",
         "--database-evidence",
@@ -450,7 +497,7 @@ def check_release_provenance() -> None:
         "Signed Pi release sidecars are incomplete",
         "validate_checksum_index",
         "SHA256SUMS.sig",
-        "SPDX archive contains no SPDX JSON document",
+        "validate_spdx_bundle",
         "database_fresh=true",
         "coverage_complete=true",
         "format=cosmopod-cve-gate-v4",
@@ -657,13 +704,14 @@ def check_product_features() -> None:
     if "ssh-keygen -q -t" in persist_script or "ssh-keygen -y -f" not in persist_script:
         fail("persistent setup must validate SSH keys without racing their generator")
 
-    if 'MENDER_SERVER_URL ?= "https://kys.dpdns.org"' not in common:
-        fail("default Mender server must be https://kys.dpdns.org")
-    if (
-        'MENDER_PERSISTENT_CONFIGURATION_VARS:append = " ServerURL TenantToken"'
-        not in common
-    ):
-        fail("Mender server and tenant selection must survive A/B updates")
+    if 'MENDER_SERVER_URL = ""' not in common or 'SYSTEMD_AUTO_ENABLE:pn-mender = "disable"' not in common:
+        fail("standalone updates must not enable a managed Mender backend")
+    if 'ln -s /dev/null ${D}${sysconfdir}/systemd/system/$unit' not in config_recipe:
+        fail("managed Mender daemons must be masked")
+    if 'mender-authd.service mender-updated.service"' in health:
+        fail("standalone health checks must not depend on managed daemons")
+    if 'file://cosmopod-update.py' not in config_recipe:
+        fail("standalone update command must be packaged")
     for recipe in ("nfs-utils", "rpcbind"):
         if f'SYSTEMD_AUTO_ENABLE:pn-{recipe} = "disable"' not in common:
             fail(f"{recipe} network daemons must be disabled by default")

@@ -86,6 +86,21 @@ that one locale in the WSL distro (no package install is needed):
 wsl.exe -d Ubuntu -u root -- localedef -i en_US -f UTF-8 en_US.UTF-8
 ```
 
+On a Linux builder without sudo, use the host's `localedef` to generate a
+private locale, then export its parent directory for the build process:
+
+```bash
+locale_root=$(mktemp -d /mnt/nvmestorage/cosmopod-os-cache/host-locales.XXXXXX)
+/usr/bin/localedef --no-archive -i en_US -f UTF-8 "$locale_root/en_US.utf8"
+export LOCPATH="$locale_root"
+/usr/bin/python3 -c 'import locale; locale.setlocale(locale.LC_ALL, "en_US.UTF-8")'
+```
+
+This requires installed host locale definitions but changes neither the system
+locale archive nor the default language. Keep the directory while builds use
+it. KAS explicitly forwards `LOCPATH`; the native build preflight tests the same
+host Python used by KAS instead of trusting the SDK's separate locale listing.
+
 ## Validate source
 
 ```powershell
@@ -197,10 +212,9 @@ Factory images and all VM media still need an authenticated release ledger or
 separate signed provenance before public promotion. Neither mechanism proves a
 reproducible build or builder identity by itself.
 
-The Pi backend origin is also a recorded build input. Until the hostname is
-dedicated and approved, leave production media unqualified. Override it without
-editing source using `-MenderServerUrl https://kys.dpdns.org`; only a
-plain HTTPS origin is accepted.
+Builds record `update_mode=standalone` and an empty `mender_server_url`.
+No backend origin or tenant is required. Managed-server build overrides are
+not accepted by the standalone build wrappers.
 
 ## Sign an update
 
@@ -228,7 +242,7 @@ sha256sum out/0.43.0/pi4-release/Cosmopod-OS-0.43.0-pi4-unsigned.mender
 
 # On the offline signer, use approved values from that independent channel.
 scripts/sign-release.sh \
-  --approve-server-url https://kys.dpdns.org \
+  --standalone \
   --approve-build-index-sha256 <approved-sha256-of-SHA256SUMS> \
   --approve-unsigned-sha256 <approved-sha256-of-unsigned-mender> \
   out/0.43.0/pi4-release/Cosmopod-OS-0.43.0-pi4-unsigned.mender
@@ -254,16 +268,30 @@ formal risk decision explicitly allows online signing.
 ## Dependency updates
 
 All layer revisions in `kas/common.yml` are full commit SHAs. Update them as a
-tested set, never by changing a single layer to a floating branch. Pi 5 also
-depends on its pinned `meta-lts-mixins` revision.
+tested set, never by changing a layer to a floating branch.
 
 `kas/common.yml` explicitly accepts the `synaptics-killswitch` license flag
 needed for the Raspberry Pi Broadcom/Synaptics Wi-Fi firmware. This is a named,
 reviewable acceptance, not a wildcard acceptance of restricted licenses.
 
-Scarthgap is used as the first hardware baseline because its Mender Raspberry
-Pi integration is established. Qualify a full Yocto LTS migration separately;
-do not mix Wrynose layers into a Scarthgap build.
+The current baseline is Yocto 6.0 Wrynose. Preserve its compatible layer set;
+do not mix in Scarthgap metadata or unreviewed master revisions.
+
+## Version 0.60.0 validation record
+
+Blackwall completed development builds and artifact integrity validation for
+Pi 4, Pi 5, and x86-64 at source commit
+`2a95d10fb578367238d78fde20103dad2ed2a19e`.
+The VM ISO and both QCOW2 boot/persistence smoke tests passed. These checks
+do not prove physical Pi qualification for this version.
+
+The fresh build-time CVE gates failed: 115 denied findings on each Pi target
+and 188 on VM, with zero waivers. These reports are historical build evidence,
+not a substitute for a fresh scan before release promotion. Production
+signing, a working Mender backend, signed OTA/rollback and physical hardware
+qualification remain required. Version 0.61.0 starts remediation with the
+upstream curl 8.22.0 and OpenSSL 3.5.8 security updates; its build and security
+results must be established independently.
 
 ## Version 0.43.0 validation record
 
@@ -292,7 +320,7 @@ For each board and storage type:
 1. Flash and boot five times.
 2. Verify DRM/KMS, Weston, keyboard/mouse, Ethernet, Wi-Fi, Bluetooth, SSH.
 3. Verify stable SSH host fingerprint after reboot and after A/B update.
-4. Accept device in backend and deploy a signed update.
+4. Install a signed update with `cosmopod-update`, reboot, and explicitly commit.
 5. Confirm unsigned and wrong-key updates are rejected.
 6. Force health failure and prove rollback.
 7. Pull power during download, inactive-slot write, first trial boot, and

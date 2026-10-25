@@ -63,7 +63,7 @@ command; a timeout against the older media is expected and is not a pass.
 
 The ISO is ephemeral: `/data` uses tmpfs and changes disappear after shutdown.
 The QCOW2 disk has a persistent `cosmopod-data` partition. Neither VM format
-uses Raspberry Pi Mender A/B OTA; backend updates are Pi-only.
+uses Raspberry Pi Mender A/B OTA; standalone A/B updates are Pi-only.
 
 ## First VM login and SSH
 

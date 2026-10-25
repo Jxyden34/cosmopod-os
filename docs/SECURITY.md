@@ -1,5 +1,11 @@
 # Security model
 
+From 0.73.0, the default path is signed public release downloads and standalone
+Mender installation, not a managed Mender server. See
+[UPDATE-SYSTEM.md](UPDATE-SYSTEM.md) for the current trust, key-custody,
+commit/recovery and qualification contract. Backend-specific guidance below
+applies only to the retained historical managed deployment tools.
+
 Cosmopod OS is secure-by-default for network access and update authenticity,
 but it is not a complete Raspberry Pi secure-boot product.
 
@@ -55,6 +61,14 @@ Its manifest records `release_qualified=false`, gate decision, and denied
 count; signing and clean release promotion remain blocked.
 
 ## Provenance boundary
+
+SPDX bundles must contain the actual, nonempty board-matched JSON document,
+not a symlink to a document left in the build cache. Builder, artifact validator,
+and offline signer share the same payload check, including the SPDX 3.0.1
+document, SBOM root, and package graph. This is an export-contract check, not a
+complete SPDX schema validator. The 0.57.0 development bundles failed this
+requirement; their old name-only validation result is insufficient release
+evidence. Rebuild them with the corrected exporter; do not promote them.
 
 The initial builder manifest and checksum index do not authenticate builder
 identity or prove reproducibility. Offline signing requires independently

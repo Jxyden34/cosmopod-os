@@ -1,5 +1,11 @@
 # Cosmopod Mender backend
 
+Historical optional tooling: Cosmopod 0.73.0 and later use standalone signed
+updates. This infrastructure is not required for that path or for 1.0.0.
+Managed deployments require an explicitly reviewed configuration migration;
+the default images mask the managed daemons. See
+[standalone updates](../docs/UPDATE-SYSTEM.md).
+
 Two deliberately separate deployment paths live here:
 
 - `scripts/`: disposable local evaluation using upstream Docker Compose.
