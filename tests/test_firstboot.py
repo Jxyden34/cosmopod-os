@@ -42,17 +42,10 @@ class ConfigParserTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 FIRSTBOOT.validate_hostname(value)
 
-    def test_server_requires_https_by_default(self) -> None:
-        self.assertEqual(
-            FIRSTBOOT.validate_server_url("https://mender.example.com/", False),
-            "https://mender.example.com",
-        )
-        with self.assertRaises(ValueError):
-            FIRSTBOOT.validate_server_url("http://mender.local", False)
-        self.assertEqual(
-            FIRSTBOOT.validate_server_url("http://mender.local", True),
-            "http://mender.local",
-        )
+    def test_standalone_provisioning_rejects_backend_configuration(self) -> None:
+        for key in ("MENDER_SERVER_URL", "MENDER_TENANT_TOKEN", "ALLOW_INSECURE_MENDER"):
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                FIRSTBOOT.parse_config_text(f"{key}=unexpected\n")
 
     def test_ssh_key_blob_type_must_match(self) -> None:
         valid_blob = "AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"

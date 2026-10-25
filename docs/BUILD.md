@@ -212,10 +212,9 @@ Factory images and all VM media still need an authenticated release ledger or
 separate signed provenance before public promotion. Neither mechanism proves a
 reproducible build or builder identity by itself.
 
-The Pi backend origin is also a recorded build input. Until the hostname is
-dedicated and approved, leave production media unqualified. Override it without
-editing source using `-MenderServerUrl https://kys.dpdns.org`; only a
-plain HTTPS origin is accepted.
+Builds record `update_mode=standalone` and an empty `mender_server_url`.
+No backend origin or tenant is required. Managed-server build overrides are
+not accepted by the standalone build wrappers.
 
 ## Sign an update
 
@@ -243,7 +242,7 @@ sha256sum out/0.43.0/pi4-release/Cosmopod-OS-0.43.0-pi4-unsigned.mender
 
 # On the offline signer, use approved values from that independent channel.
 scripts/sign-release.sh \
-  --approve-server-url https://kys.dpdns.org \
+  --standalone \
   --approve-build-index-sha256 <approved-sha256-of-SHA256SUMS> \
   --approve-unsigned-sha256 <approved-sha256-of-unsigned-mender> \
   out/0.43.0/pi4-release/Cosmopod-OS-0.43.0-pi4-unsigned.mender
@@ -321,7 +320,7 @@ For each board and storage type:
 1. Flash and boot five times.
 2. Verify DRM/KMS, Weston, keyboard/mouse, Ethernet, Wi-Fi, Bluetooth, SSH.
 3. Verify stable SSH host fingerprint after reboot and after A/B update.
-4. Accept device in backend and deploy a signed update.
+4. Install a signed update with `cosmopod-update`, reboot, and explicitly commit.
 5. Confirm unsigned and wrong-key updates are rejected.
 6. Force health failure and prove rollback.
 7. Pull power during download, inactive-slot write, first trial boot, and

@@ -17,7 +17,7 @@ requested_channel=auto
 allow_dirty=false
 replace_output=false
 allow_unconfined_task_network=false
-mender_server_url=https://kys.dpdns.org
+mender_server_url=
 bb_threads=${COSMOPOD_BB_NUMBER_THREADS:-6}
 make_jobs=${COSMOPOD_PARALLEL_MAKE_JOBS:-6}
 build_started_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -28,7 +28,6 @@ Usage: scripts/build.sh [--build|--checkout-only] [--engine auto|native|containe
                         [--channel auto|development|release]
                         [--allow-dirty] [--replace-output]
                         [--allow-unconfined-task-network]
-                        [--mender-server-url https://HOST]
                         --board pi4|pi5|vm --version VERSION
 
 Auto uses the kas container when Docker is available, otherwise it installs the
@@ -48,7 +47,6 @@ while [[ $# -gt 0 ]]; do
         --allow-dirty) allow_dirty=true ;;
         --replace-output) replace_output=true ;;
         --allow-unconfined-task-network) allow_unconfined_task_network=true ;;
-        --mender-server-url) mender_server_url=${2:?missing Mender server URL}; shift ;;
         -h|--help) usage; exit 0 ;;
         *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
     esac
@@ -82,10 +80,6 @@ if [[ -z "$version" ]]; then
 fi
 [[ "$version" =~ ^[0-9A-Za-z][0-9A-Za-z._+-]{0,63}$ ]] || {
     echo "Invalid version: $version" >&2
-    exit 2
-}
-validate_https_origin "$mender_server_url" || {
-    echo "Mender server URL must be an HTTPS origin without path, credentials, query, or fragment" >&2
     exit 2
 }
 
@@ -848,6 +842,7 @@ verify_export_invariants
     printf 'requested_channel=%s\n' "$requested_channel"
     printf 'release_qualified=%s\n' "$release_qualified"
     printf 'mender_server_url=%s\n' "$mender_server_url"
+    printf 'update_mode=standalone\n'
     printf 'source_commit=%s\n' "$source_commit"
     printf 'source_tree=%s\n' "$source_tree"
     printf 'source_content_sha256=%s\n' "$source_content_sha256"

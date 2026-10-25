@@ -47,9 +47,6 @@ WIFI_COUNTRY=GB
 WIFI_SSID=My WiFi
 WIFI_PASSWORD=correct horse battery staple
 
-MENDER_SERVER_URL=https://kys.dpdns.org
-MENDER_TENANT_TOKEN=
-ALLOW_INSECURE_MENDER=false
 ```
 
 Generate a client SSH key if needed:
@@ -60,12 +57,11 @@ Get-Content $HOME\.ssh\cosmopod.pub
 ```
 
 Parser accepts only documented keys and never evaluates shell expressions.
-HTTPS is mandatory for Mender unless `ALLOW_INSECURE_MENDER=true` is explicitly
-set for an isolated lab.
+Standalone update downloads require HTTPS. No backend credentials are needed.
 
 The first-boot service:
 
-- moves hostname, home, network settings, SSH host keys, and Mender config to
+- moves hostname, home, network settings, and SSH host keys to
   persistent `/data` storage;
 - deletes `cosmopod.conf` from the boot partition after applying it;
 - writes `cosmopod-provisioned.txt` as a receipt.
@@ -89,7 +85,7 @@ Useful checks:
 
 ```bash
 systemctl --failed
-systemctl status weston sshd mender-authd mender-updated
+systemctl status weston sshd
 nmcli device status
 journalctl -b
 mender-update show-artifact
@@ -98,9 +94,11 @@ mender-update show-artifact
 Cosmopod OS is Yocto-based; it does not use `apt upgrade`. Build and deploy a
 new signed `.mender` artifact for operating-system changes.
 
-## Connect to backend
+## Install updates
 
-After a reachable Mender backend has been deployed at the configured URL, the
-Pi appears under pending devices in the Mender UI. Check its identity, then
-accept it. Put the first device in a `dev` or `canary` group before deploying
-any update.
+No backend registration is needed. On standalone images, use
+`cosmopod-update check`, then `sudo cosmopod-update install`. Reboot and inspect
+the new system before `sudo cosmopod-update commit`. See
+[standalone updates](UPDATE-SYSTEM.md) for signatures, recovery and release gates.
+Old provisioning files must omit MENDER_SERVER_URL, MENDER_TENANT_TOKEN and
+ALLOW_INSECURE_MENDER; these managed-mode fields are no longer accepted.

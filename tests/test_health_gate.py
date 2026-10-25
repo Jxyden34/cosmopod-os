@@ -21,6 +21,7 @@ now=${now%%.*}
 case "${0##*/}" in
     sleep) printf '%s.00 0.00\\n' "$((now + $1))" > "$TEST_HEALTH_CLOCK" ;;
     systemctl)
+        case "$*" in *mender*) exit 1 ;; esac
         case "$TEST_HEALTH_FAULT" in
             stall) /bin/sleep 30 ;;
             slow) printf '%s.00 0.00\\n' "$((now + 50))" > "$TEST_HEALTH_CLOCK" ;;

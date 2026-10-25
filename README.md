@@ -3,14 +3,14 @@
 Cosmopod OS is a 64-bit Linux distribution project for Raspberry Pi 4,
 Raspberry Pi 5, and x86-64 virtual machines. It is designed to start a Wayland
 desktop, expose hardened OpenSSH, ship practical administration/development
-tools, and receive robust A/B updates on Raspberry Pi from a Mender backend.
+tools, and receive signed A/B updates on Raspberry Pi without a Mender server.
 
 Pi generations and x86 VMs use separate boot targets; one kernel/boot image is
 not treated as universal hardware media.
 
 Development builds advance through `0.x.0` iterations. `1.0.0` is reserved
 for the first release that passes the complete Pi, VM, Wayland, SSH, OTA,
-backend, security, and publishing qualification described in
+standalone recovery, security, and publishing qualification described in
 [`docs/VERSIONING.md`](docs/VERSIONING.md).
 
 ## What it produces
@@ -46,7 +46,7 @@ balenaEtcher, or `dd`. The ISO is for x86-64 VMs only.
 - tcpdump, nmap, strace, lsof, iproute2, ethtool, storage tools
 - Mender A/B rootfs updates with automatic rollback and signed-artifact checks
 - Persistent `/data` state for SSH host keys, user home, network connections,
-  Mender identity, and backend configuration
+  Mender transaction state and update journal
 - Update health gate checking data, NetworkManager, SSH, Weston, and Wayland
   before a new OS is committed
 
@@ -73,33 +73,36 @@ Before first boot:
 1. Flash the matching `.img.xz`.
 2. Open the FAT boot partition.
 3. Rename `cosmopod.conf.example` to `cosmopod.conf`.
-4. Add your SSH public key and, optionally, Wi-Fi/Mender settings.
+4. Add your SSH public key and, optionally, Wi-Fi settings.
 5. Boot the Pi and connect with `ssh cosmopod@cosmopod.local`.
 
 Account `cosmopod` has no password. If no SSH key is provisioned, remote login
 correctly remains unavailable; local Wayland desktop still starts.
 
-## Backend updates
+## Standalone updates
 
-`backend/` bootstraps the official Open Source Mender Server for local
-evaluation and includes a production Helm values template. Devices poll the
-backend outbound over HTTPS. Creating a deployment in Mender sends a signed OS
-release to selected Pi devices or groups. The configured endpoint is
-`https://kys.dpdns.org`; production DNS/TLS/server setup is still required.
+Pi images use Mender's standalone installer. Signed board-specific updates are
+published through GitHub Releases; no Mender account, managed server, or new
+server hardware is required. The command checks the signed release index and
+artifact hash before Mender verifies and installs the artifact. Commit is
+explicit, after reboot and health checks. VM media is replaced separately.
 
 ```bash
 # Values must come from an authenticated build record, independently of the
 # bundle copied to the offline signer.
 BUILD_INDEX_SHA256=<approved-sha256-of-SHA256SUMS>
 UNSIGNED_SHA256=<approved-sha256-of-unsigned-mender>
-scripts/sign-release.sh --approve-server-url https://kys.dpdns.org \
+scripts/sign-release.sh --standalone \
   --approve-build-index-sha256 "$BUILD_INDEX_SHA256" \
   --approve-unsigned-sha256 "$UNSIGNED_SHA256" \
   out/0.43.0/pi4-release/Cosmopod-OS-0.43.0-pi4-unsigned.mender
 
-# Local evaluation backend; not production configuration.
-backend/scripts/bootstrap-evaluation.sh
-backend/scripts/start.sh
+# On a Pi running a standalone factory image, once a qualified release exists:
+cosmopod-update check
+sudo cosmopod-update install
+sudo reboot
+# Reconnect, inspect the system, then accept it:
+sudo cosmopod-update commit
 ```
 
 Read [update system](docs/UPDATE-SYSTEM.md) before deploying an update.
@@ -113,11 +116,11 @@ Read [update system](docs/UPDATE-SYSTEM.md) before deploying an update.
 - [Update system](docs/UPDATE-SYSTEM.md)
 - [Security](docs/SECURITY.md)
 - [Vulnerability reporting](SECURITY.md)
-- [Backend](backend/README.md)
+- [Historical optional backend tooling](backend/README.md)
 
 ## Current status
 
-Version 0.43.0 completed clean native Yocto builds for the x86-64 VM,
+Version 0.72.0 completed clean native Yocto builds for the x86-64 VM,
 Raspberry Pi 4, and Raspberry Pi 5. Each artifact's `BUILD-MANIFEST.txt`
 records its exact source commit and tree. The VM ISO and QCOW2 passed isolated
 QEMU smoke tests covering Wayland/Weston, SSH, systemd health, mounts, and
@@ -125,10 +128,11 @@ QCOW2 persistence across two boots. Both Pi builds exported factory images and
 unsigned Mender artifacts whose checksums, archives, device types, and Mender
 v3 structure validated successfully. No physical Pi boot is claimed.
 
-All 0.43.0 media remains development-only. The fresh CVE gate denied 237 VM
-findings and 298 findings for each Pi target, so the artifacts were not signed
-or promoted. Production signing, backend OTA/rollback, and physical Pi 4/Pi 5
-qualification still require controlled infrastructure and hardware. Do not
+All 0.72.0 media remains development-only. Its 2026-10-20 CVE gate denied 76 VM
+findings and 125 findings for each Pi target. Version 0.73.0 introduces standalone
+update tooling; its build and qualification status must be verified independently.
+Production signing, standalone update/rollback, and physical Pi 4/Pi 5
+qualification remain required. No public signed release is claimed. Do not
 promote any build to 1.0.0 until every gate in
 [versioning](docs/VERSIONING.md) passes. See [Build](docs/BUILD.md) for the
 detailed record.

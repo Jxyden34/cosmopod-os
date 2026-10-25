@@ -5,14 +5,12 @@ from __future__ import annotations
 
 import base64
 import binascii
-import json
 import os
 from pathlib import Path
 import re
 import subprocess
 import sys
 import tempfile
-from urllib.parse import urlparse
 
 
 BOOT_CONFIGS = (
@@ -21,16 +19,12 @@ BOOT_CONFIGS = (
     Path("/boot/cosmopod.conf"),
 )
 STATE_DIR = Path("/data/cosmopod")
-MENDER_CONFIG = Path("/data/mender/mender.conf")
 ALLOWED_KEYS = {
     "COSMOPOD_HOSTNAME",
     "SSH_PUBLIC_KEY",
     "WIFI_COUNTRY",
     "WIFI_SSID",
     "WIFI_PASSWORD",
-    "MENDER_SERVER_URL",
-    "MENDER_TENANT_TOKEN",
-    "ALLOW_INSECURE_MENDER",
 }
 SSH_TYPES = {"ssh-ed25519", "ssh-rsa", "ecdsa-sha2-nistp256"}
 
@@ -83,27 +77,6 @@ def validate_ssh_key(value: str) -> str:
     if type_length < 1 or embedded_type != fields[0].encode("ascii"):
         raise ValueError("SSH_PUBLIC_KEY type does not match its OpenSSH blob")
     return " ".join(fields)
-
-
-def validate_server_url(value: str, allow_insecure: bool) -> str:
-    parsed = urlparse(value)
-    if not parsed.netloc or parsed.username or parsed.password or parsed.query or parsed.fragment:
-        raise ValueError("MENDER_SERVER_URL must be a plain absolute server URL")
-    if parsed.scheme != "https" and not (allow_insecure and parsed.scheme == "http"):
-        raise ValueError("MENDER_SERVER_URL must use HTTPS; lab HTTP needs ALLOW_INSECURE_MENDER=true")
-    return value.rstrip("/")
-
-
-def atomic_json_write(path: Path, data: dict[str, object]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    with temporary.open("w", encoding="utf-8") as stream:
-        json.dump(data, stream, indent=2, sort_keys=True)
-        stream.write("\n")
-        stream.flush()
-        os.fsync(stream.fileno())
-    os.chmod(temporary, 0o600)
-    os.replace(temporary, path)
 
 
 def run(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -167,23 +140,6 @@ def provision(config: dict[str, str]) -> None:
         else:
             run("nmcli", "connection", "up", "id", "cosmopod-wifi", check=False)
 
-    if MENDER_CONFIG.exists():
-        with MENDER_CONFIG.open(encoding="utf-8") as stream:
-            mender = json.load(stream)
-    else:
-        mender = {}
-
-    server_url = config.get("MENDER_SERVER_URL", "").strip()
-    if server_url:
-        allow_insecure = config.get("ALLOW_INSECURE_MENDER", "false").lower() == "true"
-        mender["ServerURL"] = validate_server_url(server_url, allow_insecure)
-    token = config.get("MENDER_TENANT_TOKEN", "").strip()
-    if token:
-        if len(token) > 8192:
-            raise ValueError("MENDER_TENANT_TOKEN is unreasonably long")
-        mender["TenantToken"] = token
-    atomic_json_write(MENDER_CONFIG, mender)
-
 def main() -> int:
     config_path = next((path for path in BOOT_CONFIGS if path.is_file()), None)
     if config_path is None:
@@ -200,8 +156,7 @@ def main() -> int:
         marker = STATE_DIR / "provisioned-v1"
         marker.write_text("Cosmopod OS provisioning complete\n", encoding="utf-8")
         os.sync()
-        run("systemctl", "try-restart", "mender-authd.service", "mender-updated.service", check=False)
-    except (OSError, ValueError, json.JSONDecodeError, subprocess.CalledProcessError) as exc:
+    except (OSError, ValueError, subprocess.CalledProcessError) as exc:
         print(f"Cosmopod provisioning failed: {exc}", file=sys.stderr)
         return 1
 

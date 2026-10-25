@@ -1,5 +1,11 @@
 # Security model
 
+From 0.73.0, the default path is signed public release downloads and standalone
+Mender installation, not a managed Mender server. See
+[UPDATE-SYSTEM.md](UPDATE-SYSTEM.md) for the current trust, key-custody,
+commit/recovery and qualification contract. Backend-specific guidance below
+applies only to the retained historical managed deployment tools.
+
 Cosmopod OS is secure-by-default for network access and update authenticity,
 but it is not a complete Raspberry Pi secure-boot product.
 

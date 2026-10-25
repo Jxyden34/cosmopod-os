@@ -14,6 +14,7 @@ SRC_URI = " \
     file://cosmopod-profile \
     file://cosmopod-readme.txt \
     file://ArtifactCommit_Enter_50_cosmopod-health \
+    file://cosmopod-update.py \
 "
 
 inherit systemd mender-state-scripts
@@ -28,6 +29,13 @@ RDEPENDS:${PN} += " \
     openssh-keygen \
     python3-core \
     util-linux \
+    python3-crypt \
+    python3-io \
+    python3-json \
+    python3-subprocess \
+    curl \
+    ca-certificates \
+    openssl-bin \
 "
 
 do_install() {
@@ -35,6 +43,8 @@ do_install() {
     install -m 0755 ${UNPACKDIR}/cosmopod-firstboot.py ${D}${libexecdir}/cosmopod-firstboot
     install -m 0755 ${UNPACKDIR}/cosmopod-persist.sh ${D}${libexecdir}/cosmopod-persist
     install -m 0755 ${UNPACKDIR}/cosmopod-weston ${D}${libexecdir}/cosmopod-weston
+    install -d ${D}${bindir}
+    install -m 0755 ${UNPACKDIR}/cosmopod-update.py ${D}${bindir}/cosmopod-update
 
     install -d ${D}${systemd_system_unitdir}
     install -m 0644 ${UNPACKDIR}/cosmopod-firstboot.service ${D}${systemd_system_unitdir}/
@@ -82,12 +92,7 @@ ExecStart=${libexecdir}/cosmopod-weston
 EOF
 
     for unit in mender-authd.service mender-updated.service; do
-        install -d ${D}${sysconfdir}/systemd/system/$unit.d
-        cat > ${D}${sysconfdir}/systemd/system/$unit.d/cosmopod.conf <<'EOF'
-[Unit]
-Wants=cosmopod-firstboot.service
-After=cosmopod-firstboot.service
-EOF
+        ln -s /dev/null ${D}${sysconfdir}/systemd/system/$unit
     done
 
     install -d ${D}${datadir}/cosmopod/home-seed

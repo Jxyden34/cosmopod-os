@@ -83,12 +83,12 @@ local_conf_header:
     MENDER_BOOT_PART_SIZE_MB = "256"
     MENDER_DATA_PART_SIZE_MB = "1024"
 
-    COSMOPOD_VERSION ?= "0.72.0-dev"
+    COSMOPOD_VERSION ?= "0.73.0-dev"
     MENDER_ARTIFACT_NAME ?= "cosmopod-os-${COSMOPOD_VERSION}-${MACHINE}"
-    MENDER_SERVER_URL ?= "https://kys.dpdns.org"
-    MENDER_TENANT_TOKEN ?= ""
-    MENDER_UPDATE_POLL_INTERVAL_SECONDS = "1800"
-    MENDER_INVENTORY_POLL_INTERVAL_SECONDS = "28800"
+    # Standalone installation uses signed public release files, not a backend.
+    MENDER_SERVER_URL = ""
+    MENDER_TENANT_TOKEN = ""
+    SYSTEMD_AUTO_ENABLE:pn-mender = "disable"
     PACKAGECONFIG:remove:pn-openssh = "systemd-sshd-socket-mode"
     PACKAGECONFIG:append:pn-openssh = " systemd-sshd-service-mode"
 
@@ -97,9 +97,8 @@ local_conf_header:
     SYSTEMD_AUTO_ENABLE:pn-nfs-utils = "disable"
     SYSTEMD_AUTO_ENABLE:pn-rpcbind = "disable"
 
-    # Preserve backend selection across A/B rootfs replacement.
-    MENDER_CONFIGURATION_VARS:append = " TenantToken"
-    MENDER_PERSISTENT_CONFIGURATION_VARS:append = " ServerURL TenantToken"
+    # Do not migrate an old managed endpoint into newly built configuration.
+    MENDER_PERSISTENT_CONFIGURATION_VARS:remove = "ServerURL TenantToken"
 
     # Factory image includes one FAT boot partition, two rootfs slots, and data.
     IMAGE_FSTYPES:remove = "rpi-sdimg"

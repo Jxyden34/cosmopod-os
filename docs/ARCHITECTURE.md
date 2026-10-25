@@ -14,7 +14,7 @@ kas configuration
              +-- Pi 5 factory .sdimg + Pi 5 .mender update
              +-- x86-64 live .iso + persistent .qcow2 VM disk
 
-Mender Server --HTTPS/outbound polling--> Mender client
+GitHub signed releases --HTTPS/manual install--> standalone Mender client
                                              |
                                       inactive rootfs write
                                              |
@@ -24,7 +24,7 @@ Mender Server --HTTPS/outbound polling--> Mender client
                               commit slot          rollback slot
 ```
 
-The VM ISO/QCOW2 target deliberately excludes Mender A/B. Backend OTA is a Pi
+The VM ISO/QCOW2 target deliberately excludes Mender A/B. Standalone A/B is a Pi
 feature; live ISO media has no safe inactive slot or persistent device identity.
 
 ## Raspberry Pi storage layout
@@ -39,7 +39,7 @@ Every factory image contains:
 Mender writes a new full root filesystem only to the inactive slot. U-Boot
 trial-boots that slot. `ArtifactCommit_Enter_50_cosmopod-health` requires 120
 continuous seconds of healthy services, writable data, valid SSH configuration,
-and a Wayland socket. Success commits the new slot;
+and a Wayland socket when an operator explicitly commits the update. Success accepts the new slot;
 failure makes Mender roll back to the prior slot.
 
 The ordinary rootfs update does not safely replace all shared Raspberry Pi boot
@@ -68,10 +68,10 @@ lost network settings after an A/B update.
 
 - Factory image trusts the public artifact verification key compiled into it.
 - Private artifact signing key stays outside Git and outside the backend.
-- Mender Server selects devices/releases but cannot make a client accept an
-  unsigned or incorrectly signed artifact.
+- Public release metadata selects a download; signed checksum indexes and
+  Mender artifact verification authenticate it before installation.
 - SSH accepts only public keys for non-root user `cosmopod`.
-- Backend transport must use HTTPS in production.
+- Downloads and their redirects require HTTPS. No managed backend is required.
 - Raspberry Pi boot chain is not secure boot by default; physical media access
   remains a separate threat.
 

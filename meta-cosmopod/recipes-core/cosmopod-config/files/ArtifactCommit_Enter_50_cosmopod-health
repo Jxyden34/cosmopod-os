@@ -29,7 +29,7 @@ elapsed=0
 stable=0
 stable_since=
 next_log=0
-services="data.mount cosmopod-persist.service NetworkManager.service sshd.service weston.service mender-authd.service mender-updated.service"
+services="data.mount cosmopod-persist.service NetworkManager.service sshd.service weston.service"
 
 while [ "$elapsed" -lt "$deadline" ]; do
     healthy=true

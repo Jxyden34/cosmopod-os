@@ -8,9 +8,4 @@ WIFI_COUNTRY=GB
 WIFI_SSID=
 WIFI_PASSWORD=
 
-# Open Source self-hosted Mender does not need a tenant token.
-MENDER_SERVER_URL=https://kys.dpdns.org
-MENDER_TENANT_TOKEN=
-
-# Lab only. Keep false for real deployments.
-ALLOW_INSECURE_MENDER=false
+# Updates use signed public releases. No Mender account or server is required.

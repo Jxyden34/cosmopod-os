@@ -396,7 +396,7 @@ def check_release_provenance() -> None:
         "--replace-output",
         "Release build refused: source tree is dirty",
         "Release output already exists",
-        "--mender-server-url",
+        "update_mode=standalone",
         'source "$script_dir/release-common.sh"',
         "release_input_paths",
         '${#release_inputs[@]} == 11',
@@ -466,7 +466,7 @@ def check_release_provenance() -> None:
         "cosmopod-signing-record-v2",
         "Unsigned artifact unexpectedly passed",
         "wrong-key validation",
-        "--approve-server-url",
+        "--standalone",
         "--approve-build-index-sha256",
         "--approve-unsigned-sha256",
         "cp --archive --reflink=auto",
@@ -704,13 +704,14 @@ def check_product_features() -> None:
     if "ssh-keygen -q -t" in persist_script or "ssh-keygen -y -f" not in persist_script:
         fail("persistent setup must validate SSH keys without racing their generator")
 
-    if 'MENDER_SERVER_URL ?= "https://kys.dpdns.org"' not in common:
-        fail("default Mender server must be https://kys.dpdns.org")
-    if (
-        'MENDER_PERSISTENT_CONFIGURATION_VARS:append = " ServerURL TenantToken"'
-        not in common
-    ):
-        fail("Mender server and tenant selection must survive A/B updates")
+    if 'MENDER_SERVER_URL = ""' not in common or 'SYSTEMD_AUTO_ENABLE:pn-mender = "disable"' not in common:
+        fail("standalone updates must not enable a managed Mender backend")
+    if 'ln -s /dev/null ${D}${sysconfdir}/systemd/system/$unit' not in config_recipe:
+        fail("managed Mender daemons must be masked")
+    if 'mender-authd.service mender-updated.service"' in health:
+        fail("standalone health checks must not depend on managed daemons")
+    if 'file://cosmopod-update.py' not in config_recipe:
+        fail("standalone update command must be packaged")
     for recipe in ("nfs-utils", "rpcbind"):
         if f'SYSTEMD_AUTO_ENABLE:pn-{recipe} = "disable"' not in common:
             fail(f"{recipe} network daemons must be disabled by default")

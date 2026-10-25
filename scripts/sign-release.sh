@@ -3,19 +3,18 @@ set -Eeuo pipefail
 
 usage() {
     cat >&2 <<'EOF'
-Usage: scripts/sign-release.sh --approve-server-url https://HOST \
+Usage: scripts/sign-release.sh --standalone \
   --approve-build-index-sha256 SHA256 \
   --approve-unsigned-sha256 SHA256 PATH/TO/*-unsigned.mender
 EOF
 }
 
-[[ $# -eq 7 && "$1" == --approve-server-url &&
-   "$3" == --approve-build-index-sha256 &&
-   "$5" == --approve-unsigned-sha256 ]] || { usage; exit 2; }
-approved_server_url=$2
-approved_build_index_sha256=$4
-approved_unsigned_sha256=$6
-input=$(realpath -- "$7")
+[[ $# -eq 6 && "$1" == --standalone &&
+   "$2" == --approve-build-index-sha256 &&
+   "$4" == --approve-unsigned-sha256 ]] || { usage; exit 2; }
+approved_build_index_sha256=$3
+approved_unsigned_sha256=$5
+input=$(realpath -- "$6")
 [[ "$approved_build_index_sha256" =~ ^[0-9a-f]{64}$ &&
    "$approved_unsigned_sha256" =~ ^[0-9a-f]{64}$ ]] || {
     echo "Approved digests must be lowercase SHA-256 values" >&2
@@ -44,10 +43,6 @@ expected_input="$root/out/$version/$board-release/$input_name"
 [[ "$input" == "$expected_input" && "$source_release_dir" == "$root/out/$version/$board-release" ]] || {
     echo "Unsigned artifact must be under the trusted checkout: $expected_input" >&2
     exit 1
-}
-validate_https_origin "$approved_server_url" || {
-    echo "Approved Mender server URL must be one canonical HTTPS origin" >&2
-    exit 2
 }
 
 case "$board" in
@@ -417,12 +412,8 @@ kas_version=$(manifest_value kas_version)
     echo "Build manifest source content does not match trusted signing checkout" >&2
     exit 1
 }
-validate_https_origin "$mender_server_url" || {
-    echo "Invalid Mender server URL in build manifest" >&2
-    exit 1
-}
-[[ "$mender_server_url" == "$approved_server_url" ]] || {
-    echo "Approved server URL does not match the build manifest: $mender_server_url" >&2
+[[ -z "$mender_server_url" && "$(manifest_value update_mode)" == standalone ]] || {
+    echo "Signing requires standalone build provenance without a Mender server" >&2
     exit 1
 }
 public_sha256=$(sha256sum "$public" | awk '{print $1}')
@@ -476,7 +467,7 @@ for evidence_name in "$spdx_bundle" "$license_archive" "$cve_report" \
     }
 done
 
-validate_spdx_bundle "$release_temp_dir/$spdx_bundle" "$expected_board"
+validate_spdx_bundle "$release_temp_dir/$spdx_bundle" "$board"
 
 xz --test "$release_temp_dir/$license_archive"
 tar -tJf "$release_temp_dir/$license_archive" > "$temp_dir/license.entries"
@@ -602,6 +593,7 @@ signed_sha256=$(sha256sum "$snapshot_output" | awk '{print $1}')
     printf 'source_tree=%s\n' "$source_tree"
     printf 'source_content_sha256=%s\n' "$source_content_sha256"
     printf 'mender_server_url=%s\n' "$mender_server_url"
+    printf 'update_mode=standalone\n'
     printf 'signed_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     printf 'approved_build_index_sha256=%s\n' "$approved_build_index_sha256"
     printf 'approved_unsigned_artifact_sha256=%s\n' "$approved_unsigned_sha256"

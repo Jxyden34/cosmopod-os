@@ -234,8 +234,8 @@ validate_manifest() {
         exit 1
     }
     server_url=$(manifest_value mender_server_url)
-    validate_https_origin "$server_url" || {
-        echo "Invalid Mender server URL in build manifest" >&2
+    [[ -z "$server_url" && "$(manifest_value update_mode)" == standalone ]] || {
+        echo "Build manifest must specify standalone updates without a server" >&2
         exit 1
     }
     manifest_key=$(manifest_value verification_key_sha256)
@@ -565,6 +565,7 @@ validate_pi() {
         grep -Fq "cosmopod-os-$version-$board" <<<"$signed_metadata"
         grep -Fq "$device_type" <<<"$signed_metadata"
         grep -Fqx 'format=cosmopod-signing-record-v2' "$signed_record"
+        grep -Fqx 'update_mode=standalone' "$signed_record"
         grep -Fqx "artifact_name=cosmopod-os-$version-$board" "$signed_record"
         grep -Fqx "device_type=$device_type" "$signed_record"
         grep -Fqx "source_commit=$(manifest_value source_commit)" "$signed_record"
@@ -595,6 +596,25 @@ validate_pi() {
     grep -q '^NAME="Cosmopod OS"$' "$os_release"
     grep -q "^VERSION_ID=$version$" "$os_release"
     grep -E '^(ID|NAME|VERSION_ID)=' "$os_release"
+    # Inspect the actual built Pi filesystem, not just recipe text.
+    local updater_copy mender_config_copy
+    updater_copy=$(mktemp "${COSMOPOD_BUILD_ROOT:-"$HOME/.cache/cosmopod-os"}/$board-updater.XXXXXX")
+    mender_config_copy=$(mktemp "${COSMOPOD_BUILD_ROOT:-"$HOME/.cache/cosmopod-os"}/$board-mender-config.XXXXXX")
+    temp_files+=("$updater_copy" "$mender_config_copy")
+    debugfs -R 'cat /usr/bin/cosmopod-update' "$rootfs" > "$updater_copy" 2>/dev/null
+    cmp -- "$updater_copy" "$root/meta-cosmopod/recipes-core/cosmopod-config/files/cosmopod-update.py"
+    for unit in mender-authd.service mender-updated.service; do
+        debugfs -R "stat /etc/systemd/system/$unit" "$rootfs" 2>/dev/null | grep -Fq '"/dev/null"'
+    done
+    debugfs -R 'cat /etc/mender/mender.conf' "$rootfs" > "$mender_config_copy" 2>/dev/null
+    python3 - "$mender_config_copy" <<'PY'
+import json
+import sys
+with open(sys.argv[1]) as stream:
+    config = json.load(stream)
+assert config.get("ArtifactVerifyKey") == "/etc/mender/artifact-verify-key.pem"
+assert not config.get("ServerURL") and not config.get("TenantToken")
+PY
 }
 
 validate_vm() {
