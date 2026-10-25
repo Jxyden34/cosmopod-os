@@ -129,8 +129,9 @@ unsigned Mender artifacts whose checksums, archives, device types, and Mender
 v3 structure validated successfully. No physical Pi boot is claimed.
 
 All 0.72.0 media remains development-only. Its 2026-10-20 CVE gate denied 76 VM
-findings and 125 findings for each Pi target. Version 0.73.0 introduces standalone
-update tooling; its build and qualification status must be verified independently.
+findings and 125 findings for each Pi target. Version 0.73.0 introduced standalone
+update tooling but its first build found a Python package-name mismatch, corrected
+in 0.74.0. Build and qualification status must be verified independently.
 Production signing, standalone update/rollback, and physical Pi 4/Pi 5
 qualification remain required. No public signed release is claimed. Do not
 promote any build to 1.0.0 until every gate in

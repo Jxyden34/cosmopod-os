@@ -32,7 +32,6 @@ RDEPENDS:${PN} += " \
     python3-crypt \
     python3-io \
     python3-json \
-    python3-subprocess \
     curl \
     ca-certificates \
     openssl-bin \
