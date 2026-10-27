@@ -26,6 +26,9 @@ def check_pins() -> None:
         fail("all kas commit pins must be full 40-character SHAs")
     if re.search(r"^\s+(branch|refspec):", text, re.MULTILINE):
         fail("floating branch/refspec found in reproducible kas config")
+    openssh = (ROOT / "meta-cosmopod/recipes-connectivity/openssh/openssh_10.6p1.bb").read_text(encoding="utf-8")
+    if 'a9dc9565dffe8640f64d863cd29a32bc4a3dbdec0566a7fc44c5d6ee767d5f39' not in openssh:
+        fail("OpenSSH 10.6p1 source checksum must remain pinned")
 
 
 def check_build_supply_chain() -> None:
