@@ -137,7 +137,9 @@ qualification remain required. Version 0.74.0 subsequently completed all three
 development builds, VM boot/persistence tests, and Pi filesystem checks for the
 standalone updater and masked managed services. Its 2026-10-25 CVE gates failed
 with 149 denied findings per Pi and 89 for VM. Version 0.75.0 pins the Pi kernel
-to upstream Linux 6.18.59; its results must be established independently.
+to upstream Linux 6.18.59; all development image validations and VM smoke tests
+passed, but its 2026-10-26 CVE gates denied 132 findings per Pi and 89 for VM.
+Version 0.76.0 updates OpenSSH to 10.6p1; its image results remain unqualified.
 No public signed release is claimed. Do not
 promote any build to 1.0.0 until every gate in
 [versioning](docs/VERSIONING.md) passes. See [Build](docs/BUILD.md) for the
