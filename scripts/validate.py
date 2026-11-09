@@ -264,9 +264,9 @@ def check_vm_image_scoping() -> None:
         ROOT / "meta-cosmopod/recipes-kernel/linux/linux-raspberrypi_6.18.bbappend"
     ).read_text(encoding="utf-8")
     for kernel_update in (
-        'SRCREV_machine = "5d64d1ea73716526ed9c0ed184a9cb5f6042e32c"',
+        'SRCREV_machine = "9b488bc7a1e9b61713082f3e6c4361988d62f77b"',
         'SRCREV_meta = "5978c5f530b91cfb62213506ee6f157897432ba3"',
-        'LINUX_VERSION = "6.18.57"',
+        'LINUX_VERSION = "6.18.59"',
         'require recipes-kernel/linux/cve-exclusion.inc',
     ):
         if kernel_update not in pi_kernel_security:

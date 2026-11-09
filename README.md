@@ -133,7 +133,12 @@ findings and 125 findings for each Pi target. Version 0.73.0 introduced standalo
 update tooling but its first build found a Python package-name mismatch, corrected
 in 0.74.0. Build and qualification status must be verified independently.
 Production signing, standalone update/rollback, and physical Pi 4/Pi 5
-qualification remain required. No public signed release is claimed. Do not
+qualification remain required. Version 0.74.0 subsequently completed all three
+development builds, VM boot/persistence tests, and Pi filesystem checks for the
+standalone updater and masked managed services. Its 2026-10-25 CVE gates failed
+with 149 denied findings per Pi and 89 for VM. Version 0.75.0 pins the Pi kernel
+to upstream Linux 6.18.59; its results must be established independently.
+No public signed release is claimed. Do not
 promote any build to 1.0.0 until every gate in
 [versioning](docs/VERSIONING.md) passes. See [Build](docs/BUILD.md) for the
 detailed record.
