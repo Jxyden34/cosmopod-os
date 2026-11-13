@@ -1,5 +1,6 @@
 # Upstream rsync 3.5.2 security release; retain the existing product features.
 PV = "3.5.2"
+DEPENDS += "libidn2"
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 
