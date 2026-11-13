@@ -29,6 +29,9 @@ def check_pins() -> None:
     openssh = (ROOT / "meta-cosmopod/recipes-connectivity/openssh/openssh_10.6p1.bb").read_text(encoding="utf-8")
     if 'a9dc9565dffe8640f64d863cd29a32bc4a3dbdec0566a7fc44c5d6ee767d5f39' not in openssh:
         fail("OpenSSH 10.6p1 source checksum must remain pinned")
+    rsync = (ROOT / "meta-cosmopod/recipes-devtools/rsync/rsync_%.bbappend").read_text(encoding="utf-8")
+    if 'PV = "3.5.2"' not in rsync or 'a10d591825251e070f74c98df3daad195def4ed81b4a2de16169026aea33f6c8' not in rsync:
+        fail("rsync 3.5.2 version and source checksum must remain pinned")
 
 
 def check_build_supply_chain() -> None:
