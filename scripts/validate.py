@@ -161,7 +161,7 @@ def check_vm_image_scoping() -> None:
             rf"^\s+{re.escape(variable)}:pn-cosmopod-image\s*=", text, re.MULTILINE
         ):
             fail(f"missing scoped {variable} for the VM image")
-    wks = (ROOT / "meta-cosmopod/wic/cosmopod-vm.wks").read_text(encoding="utf-8")
+    wks = (ROOT / "meta-cosmopod/files/wic/cosmopod-vm.wks").read_text(encoding="utf-8")
     if "${" in wks or 'loader=grub-efi' not in wks:
         fail("VM WKS must use an explicit Wic EFI loader")
     if not re.search(r"part /data .*--fsoptions=\"[^\"]*nodev[^\"]*nosuid", wks):
