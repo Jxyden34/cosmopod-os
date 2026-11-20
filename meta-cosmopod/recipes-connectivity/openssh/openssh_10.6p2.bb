@@ -6,4 +6,4 @@ FILESEXTRAPATHS:prepend := "${COREBASE}/meta/recipes-connectivity/openssh/openss
 
 # These fixes were incorporated into OpenSSH before 10.6p1.
 SRC_URI:remove = "file://CVE-2026-59999.patch file://CVE-2026-59997.patch file://CVE-2026-59996.patch file://CVE-2026-59995.patch file://CVE-2026-60001.patch file://CVE-2026-60002.patch file://CVE-2026-60000.patch file://CVE-2026-73283.patch file://CVE-2026-73282.patch file://CVE-2026-73281.patch"
-SRC_URI[sha256sum] = "a9dc9565dffe8640f64d863cd29a32bc4a3dbdec0566a7fc44c5d6ee767d5f39"
+SRC_URI[sha256sum] = "9ae44872090cf2f06b3cf9ff147e7f16f309671340763ed2f99248398ae29d5b"

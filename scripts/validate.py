@@ -26,9 +26,12 @@ def check_pins() -> None:
         fail("all kas commit pins must be full 40-character SHAs")
     if re.search(r"^\s+(branch|refspec):", text, re.MULTILINE):
         fail("floating branch/refspec found in reproducible kas config")
-    openssh = (ROOT / "meta-cosmopod/recipes-connectivity/openssh/openssh_10.6p1.bb").read_text(encoding="utf-8")
-    if 'a9dc9565dffe8640f64d863cd29a32bc4a3dbdec0566a7fc44c5d6ee767d5f39' not in openssh:
-        fail("OpenSSH 10.6p1 source checksum must remain pinned")
+    openssh = (ROOT / "meta-cosmopod/recipes-connectivity/openssh/openssh_10.6p2.bb").read_text(encoding="utf-8")
+    if 'SRC_URI[sha256sum] = "9ae44872090cf2f06b3cf9ff147e7f16f309671340763ed2f99248398ae29d5b"' not in openssh:
+        fail("OpenSSH 10.6p2 source checksum must remain pinned")
+    zlib = (ROOT / "meta-cosmopod/recipes-core/zlib/zlib_1.4.bb").read_text(encoding="utf-8")
+    if 'SRC_URI[sha256sum] = "02dd159783677a749c04adbdd02b55b8a2bcc7e054f51b76b549199a916ad584"' not in zlib:
+        fail("zlib 1.4 source checksum must remain pinned")
     rsync = (ROOT / "meta-cosmopod/recipes-devtools/rsync/rsync_%.bbappend").read_text(encoding="utf-8")
     if 'PV = "3.5.2"' not in rsync or 'a10d591825251e070f74c98df3daad195def4ed81b4a2de16169026aea33f6c8' not in rsync:
         fail("rsync 3.5.2 version and source checksum must remain pinned")
