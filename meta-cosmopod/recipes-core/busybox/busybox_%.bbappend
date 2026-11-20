@@ -20,6 +20,11 @@ SRC_URI:remove = " \
 # The pinned Wrynose recipe already lists CVE-2026-38754.patch. Keep our
 # backport in FILESEXTRAPATHS, but do not append and apply it a second time.
 
+SRC_URI:append = " \
+    file://CVE-2026-38752.patch \
+    file://CVE-2026-38755.patch \
+    "
+
 # BusyBox 1.38 enables vmstat by default. Cosmopod ships the procps vmstat
 # implementation, so keep the applet disabled and avoid an alternatives
 # collision during rootfs construction.
