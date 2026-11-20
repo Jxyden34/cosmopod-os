@@ -32,6 +32,11 @@ def check_pins() -> None:
     zlib = (ROOT / "meta-cosmopod/recipes-core/zlib/zlib_1.4.bb").read_text(encoding="utf-8")
     if 'SRC_URI[sha256sum] = "02dd159783677a749c04adbdd02b55b8a2bcc7e054f51b76b549199a916ad584"' not in zlib:
         fail("zlib 1.4 source checksum must remain pinned")
+    distro = (ROOT / "meta-cosmopod/conf/distro/cosmopod.conf").read_text(encoding="utf-8")
+    glibc = (ROOT / "meta-cosmopod/recipes-core/glibc/glibc_2.43.bbappend").read_text(encoding="utf-8")
+    if ('SRCREV_glibc = "124e9adcd407737f0462aa4ba38a37678e8941ec"' not in distro
+            or 'CVE_STATUS_STABLE_BACKPORTS:append = " CVE-2026-84243 CVE-2026-100290 CVE-2026-115819"' not in glibc):
+        fail("glibc 2.43 source pin and stable backport metadata must remain paired")
     rsync = (ROOT / "meta-cosmopod/recipes-devtools/rsync/rsync_%.bbappend").read_text(encoding="utf-8")
     if 'PV = "3.5.2"' not in rsync or 'a10d591825251e070f74c98df3daad195def4ed81b4a2de16169026aea33f6c8' not in rsync:
         fail("rsync 3.5.2 version and source checksum must remain pinned")
