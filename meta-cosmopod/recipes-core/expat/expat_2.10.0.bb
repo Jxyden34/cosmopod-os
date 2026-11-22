@@ -1,4 +1,4 @@
-# Kept in sync with OE-Core's 2.9.0 recipe until Wrynose carries it.
+# Wrynose recipe with the upstream Expat security release.
 SUMMARY = "A stream-oriented XML parser library"
 DESCRIPTION = "Expat is an XML parser library written in C. It is a stream-oriented parser in which an application registers handlers with the XML parser"
 HOMEPAGE = "https://github.com/libexpat/libexpat"
@@ -14,7 +14,7 @@ SRC_URI = "${GITHUB_BASE_URI}/download/R_${VERSION_TAG}/expat-${PV}.tar.bz2 \
            file://CVE-2026-115506.patch;striplevel=2 \
            file://CVE-2026-113351.patch;striplevel=2 \
            "
-SRC_URI[sha256sum] = "775e8a68f81a748a401dc3168318d4a39484eb4f954726f21517c8f42c0ba984"
+SRC_URI[sha256sum] = "44e0139015f1c9908d0876b5516235136f16b14932d8f6634a16737a12742f53"
 UPSTREAM_CHECK_REGEX = "releases/tag/R_(?P<pver>.+)"
 
 EXTRA_OECMAKE:class-native += "-DEXPAT_BUILD_DOCS=OFF"

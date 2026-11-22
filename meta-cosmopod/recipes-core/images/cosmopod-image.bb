@@ -29,6 +29,8 @@ EXTRA_USERS_PARAMS = " \
 # Put provisioning template on FAT boot partition visible after flashing.
 IMAGE_BOOT_FILES:append = " cosmopod.conf.example"
 do_image_bootimg[depends] += "cosmopod-config:do_deploy"
+# Raspberry Pi U-Boot needs the Mender-aware boot script in IMAGE_BOOT_FILES.
+do_image_bootimg[depends] += "${@bb.utils.contains('RPI_USE_U_BOOT', '1', 'u-boot-default-script:do_deploy', '', d)}"
 
 # Yocto's live init copies the optical-media mount below /media after
 # switching to the read-only rootfs. Package QA deliberately reserves

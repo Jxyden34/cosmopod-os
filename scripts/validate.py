@@ -26,9 +26,23 @@ def check_pins() -> None:
         fail("all kas commit pins must be full 40-character SHAs")
     if re.search(r"^\s+(branch|refspec):", text, re.MULTILINE):
         fail("floating branch/refspec found in reproducible kas config")
-    openssh = (ROOT / "meta-cosmopod/recipes-connectivity/openssh/openssh_10.6p1.bb").read_text(encoding="utf-8")
-    if 'a9dc9565dffe8640f64d863cd29a32bc4a3dbdec0566a7fc44c5d6ee767d5f39' not in openssh:
-        fail("OpenSSH 10.6p1 source checksum must remain pinned")
+    openssh = (ROOT / "meta-cosmopod/recipes-connectivity/openssh/openssh_10.6p2.bb").read_text(encoding="utf-8")
+    if 'SRC_URI[sha256sum] = "9ae44872090cf2f06b3cf9ff147e7f16f309671340763ed2f99248398ae29d5b"' not in openssh:
+        fail("OpenSSH 10.6p2 source checksum must remain pinned")
+    zlib = (ROOT / "meta-cosmopod/recipes-core/zlib/zlib_1.4.bb").read_text(encoding="utf-8")
+    if 'SRC_URI[sha256sum] = "02dd159783677a749c04adbdd02b55b8a2bcc7e054f51b76b549199a916ad584"' not in zlib:
+        fail("zlib 1.4 source checksum must remain pinned")
+    distro = (ROOT / "meta-cosmopod/conf/distro/cosmopod.conf").read_text(encoding="utf-8")
+    glibc = (ROOT / "meta-cosmopod/recipes-core/glibc/glibc_2.43.bbappend").read_text(encoding="utf-8")
+    if ('SRCREV_glibc = "124e9adcd407737f0462aa4ba38a37678e8941ec"' not in distro
+            or 'CVE_STATUS_STABLE_BACKPORTS:append = " CVE-2026-84243 CVE-2026-100290 CVE-2026-115819"' not in glibc):
+        fail("glibc 2.43 source pin and stable backport metadata must remain paired")
+    rsync = (ROOT / "meta-cosmopod/recipes-devtools/rsync/rsync_%.bbappend").read_text(encoding="utf-8")
+    if 'PV = "3.5.2"' not in rsync or 'a10d591825251e070f74c98df3daad195def4ed81b4a2de16169026aea33f6c8' not in rsync:
+        fail("rsync 3.5.2 version and source checksum must remain pinned")
+    sqlite = (ROOT / "meta-cosmopod/recipes-support/sqlite/sqlite3_%.bbappend").read_text(encoding="utf-8")
+    if 'PV = "3.54.1"' not in sqlite or '926ef8d3eab93fbf6e06011901273eec076b25594a4e1cdadd50c987f4f6d64e' not in sqlite:
+        fail("SQLite 3.54.1 version and source checksum must remain pinned")
 
 
 def check_build_supply_chain() -> None:
@@ -147,7 +161,7 @@ def check_vm_image_scoping() -> None:
             rf"^\s+{re.escape(variable)}:pn-cosmopod-image\s*=", text, re.MULTILINE
         ):
             fail(f"missing scoped {variable} for the VM image")
-    wks = (ROOT / "meta-cosmopod/wic/cosmopod-vm.wks").read_text(encoding="utf-8")
+    wks = (ROOT / "meta-cosmopod/files/wic/cosmopod-vm.wks").read_text(encoding="utf-8")
     if "${" in wks or 'loader=grub-efi' not in wks:
         fail("VM WKS must use an explicit Wic EFI loader")
     if not re.search(r"part /data .*--fsoptions=\"[^\"]*nodev[^\"]*nosuid", wks):
@@ -267,9 +281,9 @@ def check_vm_image_scoping() -> None:
         ROOT / "meta-cosmopod/recipes-kernel/linux/linux-raspberrypi_6.18.bbappend"
     ).read_text(encoding="utf-8")
     for kernel_update in (
-        'SRCREV_machine = "9b488bc7a1e9b61713082f3e6c4361988d62f77b"',
+        'SRCREV_machine = "f034bf71490283b8542b6e90146f3889af9051c8"',
         'SRCREV_meta = "5978c5f530b91cfb62213506ee6f157897432ba3"',
-        'LINUX_VERSION = "6.18.59"',
+        'LINUX_VERSION = "6.18.64"',
         'require recipes-kernel/linux/cve-exclusion.inc',
     ):
         if kernel_update not in pi_kernel_security:
