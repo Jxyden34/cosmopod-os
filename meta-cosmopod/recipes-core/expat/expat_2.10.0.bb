@@ -11,6 +11,8 @@ VERSION_TAG = "${@d.getVar('PV').replace('.', '_')}"
 GITHUB_BASE_URI = "https://github.com/libexpat/libexpat/releases/"
 SRC_URI = "${GITHUB_BASE_URI}/download/R_${VERSION_TAG}/expat-${PV}.tar.bz2 \
            file://run-ptest \
+           file://CVE-2026-115506.patch;striplevel=2 \
+           file://CVE-2026-113351.patch;striplevel=2 \
            "
 SRC_URI[sha256sum] = "44e0139015f1c9908d0876b5516235136f16b14932d8f6634a16737a12742f53"
 UPSTREAM_CHECK_REGEX = "releases/tag/R_(?P<pver>.+)"
